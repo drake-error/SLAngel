@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --canvas-bg: #f8f9fc;
+    --canvas-grid: #e2e8f0;
+    --card-bg: #ffffff;
+    --border-color: #e5e7eb;
+  }
+
+  .dark {
+    --canvas-bg: #0b0f19;
+    --canvas-grid: #1e293b;
+    --card-bg: #131826;
+    --border-color: #1e293b;
+  }
+
+  body {
+    background-color: var(--canvas-bg);
+    color: #1e293b;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Google Infinite Canvas Grid Background */
+.bg-canvas-dots {
+  background-image: radial-gradient(circle, #cbd5e1 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+.dark .bg-canvas-dots {
+  background-image: radial-gradient(circle, #334155 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+.bg-canvas-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(226, 232, 240, 0.6) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(226, 232, 240, 0.6) 1px, transparent 1px);
+}
+
+.dark .bg-canvas-grid {
+  background-image: 
+    linear-gradient(to right, rgba(51, 65, 85, 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(51, 65, 85, 0.4) 1px, transparent 1px);
+}
+
+/* Custom modern scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Glassmorphic UI utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.dark .glass-panel {
+  background: rgba(19, 24, 38, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(30, 41, 59, 0.8);
+}
+
+/* Gemini Gradient Accents */
+.gemini-gradient-text {
+  background: linear-gradient(135deg, #1a73e8 0%, #8ab4f8 35%, #9b72cb 70%, #d96570 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gemini-gradient-border {
+  border-image: linear-gradient(135deg, #4285f4, #9b72cb, #ea4335) 1;
+}
+
+.gemini-border-glow {
+  box-shadow: 0 0 0 1.5px rgba(66, 133, 244, 0.6), 0 8px 32px rgba(66, 133, 244, 0.18);
+}
+
+/* Mockup screen shadow */
+.mockup-shadow {
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.dark .mockup-shadow {
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.mockup-shadow-active {
+  box-shadow: 0 24px 50px -12px rgba(66, 133, 244, 0.25), 0 0 0 2.5px #3b82f6;
+}
