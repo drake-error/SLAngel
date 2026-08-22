@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="haloGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+
+    <linearGradient id="wingGradLeft" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="60%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+
+    <linearGradient id="wingGradRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="60%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#0D9488"/>
+    </linearGradient>
+
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0, 5)">
+    <!-- Halo -->
+    <ellipse cx="200" cy="52" rx="42" ry="11" fill="none" stroke="url(#haloGrad)" stroke-width="6.5" />
+
+    <!-- Left Wing -->
+    <path d="M165 95 C140 70, 95 60, 70 85 C65 90, 80 112, 105 118 C85 120, 72 135, 88 145 C105 152, 130 142, 148 135 C132 148, 122 165, 142 170 C158 172, 172 150, 178 138 Z" fill="url(#wingGradLeft)" />
+
+    <!-- Right Wing -->
+    <path d="M235 95 C260 70, 305 60, 330 85 C335 90, 320 112, 295 118 C315 120, 328 135, 312 145 C295 152, 270 142, 252 135 C268 148, 278 165, 258 170 C242 172, 228 150, 222 138 Z" fill="url(#wingGradRight)" />
+
+    <!-- Head & Hair -->
+    <path d="M180 75 C180 60, 220 60, 220 75 C220 85, 215 95, 200 95 C185 95, 180 85, 180 75 Z" fill="#ffffff" />
+    <path d="M178 72 C178 54, 222 54, 222 72 C222 80, 210 88, 200 78 C190 88, 178 80, 178 72 Z" fill="#134074" />
+    <!-- Face Contour -->
+    <path d="M183 74 C183 92, 217 92, 217 74" fill="none" stroke="#134074" stroke-width="3" stroke-linecap="round" />
+
+    <!-- Suit & Tie -->
+    <path d="M165 140 L165 115 C165 105, 185 100, 200 100 C215 100, 235 105, 235 115 L235 140 Z" fill="#134074" />
+    <!-- White Shirt Collar -->
+    <polygon points="190,102 200,122 210,102 200,106" fill="#FFFFFF" />
+    <!-- Tie -->
+    <polygon points="198,114 202,114 204,132 200,136 196,132" fill="#0B2545" />
+
+    <!-- Central Shield -->
+    <path d="M152 132 C152 125, 200 120, 200 120 C200 120, 248 125, 248 132 C248 185, 200 215, 200 215 C200 215, 152 185, 152 132 Z" fill="#FFFFFF" stroke="url(#shieldGrad)" stroke-width="5" />
+
+    <!-- Capitol / Gov Building inside Shield -->
+    <g transform="translate(176, 142) scale(0.8)">
+      <!-- Dome -->
+      <path d="M30 20 C30 10, 10 10, 10 20 Z" fill="#134074" />
+      <rect x="18" y="6" width="4" height="6" fill="#134074" />
+      <path d="M22 6 L28 3 L22 0 Z" fill="#0D9488" />
+      <!-- Pediment -->
+      <polygon points="0,26 40,26 20,20" fill="#134074" />
+      <!-- Architrave -->
+      <rect x="2" y="26" width="36" height="3" fill="#134074" />
+      <!-- Columns -->
+      <rect x="6" y="29" width="4" height="18" rx="1" fill="#134074" />
+      <rect x="15" y="29" width="4" height="18" rx="1" fill="#134074" />
+      <rect x="23" y="29" width="4" height="18" rx="1" fill="#134074" />
+      <rect x="31" y="29" width="4" height="18" rx="1" fill="#134074" />
+      <!-- Base Steps -->
+      <rect x="2" y="47" width="36" height="3" fill="#134074" />
+      <rect x="0" y="50" width="40" height="4" fill="#134074" />
+    </g>
+
+    <!-- Checklist Document -->
+    <g transform="translate(232, 130)">
+      <rect x="0" y="0" width="60" height="74" rx="8" fill="#FFFFFF" stroke="#134074" stroke-width="4.5" />
+      <!-- Top Fold Accent -->
+      <path d="M42 0 L60 18 L42 18 Z" fill="#E2E8F0" stroke="#134074" stroke-width="3" stroke-linejoin="round" />
+      
+      <!-- Check 1 -->
+      <circle cx="15" cy="24" r="7.5" fill="#10B981" />
+      <path d="M11 24 L14 27 L19 21" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+      <line x1="28" y1="24" x2="48" y2="24" stroke="#94A3B8" stroke-width="3.5" stroke-linecap="round" />
+
+      <!-- Check 2 -->
+      <circle cx="15" cy="45" r="7.5" fill="#10B981" />
+      <path d="M11 45 L14 48 L19 42" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+      <line x1="28" y1="45" x2="48" y2="45" stroke="#94A3B8" stroke-width="3.5" stroke-linecap="round" />
+
+      <!-- Line 3 -->
+      <line x1="10" y1="62" x2="48" y2="62" stroke="#CBD5E1" stroke-width="3.5" stroke-linecap="round" />
+    </g>
+
+    <!-- Clock -->
+    <g transform="translate(230, 180)">
+      <circle cx="22" cy="22" r="22" fill="#FFFFFF" stroke="#134074" stroke-width="4.5" />
+      <!-- Clock Hands -->
+      <circle cx="22" cy="22" r="2.5" fill="#134074" />
+      <line x1="22" y1="22" x2="22" y2="10" stroke="#134074" stroke-width="3.5" stroke-linecap="round" />
+      <line x1="22" y1="22" x2="32" y2="14" stroke="#134074" stroke-width="3" stroke-linecap="round" />
+      <!-- Hour Ticks -->
+      <line x1="22" y1="3" x2="22" y2="6" stroke="#94A3B8" stroke-width="2" />
+      <line x1="22" y1="41" x2="22" y2="38" stroke="#94A3B8" stroke-width="2" />
+      <line x1="3" y1="22" x2="6" y2="22" stroke="#94A3B8" stroke-width="2" />
+      <line x1="41" y1="22" x2="38" y2="22" stroke="#94A3B8" stroke-width="2" />
+    </g>
+  </g>
+
+  <!-- Wordmark: SLAngel -->
+  <g transform="translate(32, 280)">
+    <!-- SL -->
+    <text x="0" y="44" font-family="'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" font-weight="900" font-size="58" fill="#103778" letter-spacing="-1">SL</text>
+    
+    <!-- A (Left Leg in Blue) -->
+    <path d="M80 44 L96 0 L108 0 L126 44 L112 44 L102 18 L92 44 Z" fill="#103778" />
+
+    <!-- Green Check Swoosh across A -->
+    <path d="M82 28 L95 44 L142 -6 L144 4 L96 48 L80 32 Z" fill="#10B981" />
+
+    <!-- ngel in Emerald Green -->
+    <text x="140" y="44" font-family="'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" font-weight="900" font-size="58" fill="#10B981" letter-spacing="-1">ngel</text>
+  </g>
+
+  <!-- Tagline Divider Lines & Text -->
+  <g transform="translate(35, 342)">
+    <line x1="0" y1="0" x2="26" y2="0" stroke="#CBD5E1" stroke-width="1.8" />
+    <text x="35" y="4" font-family="'Inter', sans-serif" font-weight="800" font-size="11" fill="#1E293B" letter-spacing="2.2">SMART SUPPORT FOR SMART OFFICERS</text>
+    <line x1="305" y1="0" x2="330" y2="0" stroke="#CBD5E1" stroke-width="1.8" />
+  </g>
+
+  <!-- Bottom 3 Pillars -->
+  <g transform="translate(62, 368)">
+    <!-- Remind -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="13" height="13" rx="2" fill="none" stroke="#134074" stroke-width="1.8" />
+      <line x1="3" y1="4" x2="10" y2="4" stroke="#134074" stroke-width="1.2" />
+      <circle cx="4" cy="8" r="1" fill="#134074" />
+      <circle cx="9" cy="8" r="1" fill="#134074" />
+      <text x="18" y="11" font-family="'Inter', sans-serif" font-weight="800" font-size="10.5" fill="#1E293B" letter-spacing="1.2">REMIND</text>
+    </g>
+
+    <!-- Separator -->
+    <line x1="88" y1="-2" x2="88" y2="14" stroke="#E2E8F0" stroke-width="1.5" />
+
+    <!-- Verify -->
+    <g transform="translate(104, 0)">
+      <path d="M7 0 L14 3 L14 8 C14 12, 7 15, 7 15 C7 15, 0 12, 0 8 L0 3 Z" fill="#10B981" />
+      <path d="M4 7.5 L6 9.5 L10 5.5" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" />
+      <text x="19" y="11" font-family="'Inter', sans-serif" font-weight="800" font-size="10.5" fill="#1E293B" letter-spacing="1.2">VERIFY</text>
+    </g>
+
+    <!-- Separator -->
+    <line x1="184" y1="-2" x2="184" y2="14" stroke="#E2E8F0" stroke-width="1.5" />
+
+    <!-- Serve -->
+    <g transform="translate(200, 0)">
+      <circle cx="6.5" cy="4" r="3.5" fill="#134074" />
+      <path d="M0 13 C0 10, 3 8, 6.5 8 C10 8, 13 10, 13 13 Z" fill="#134074" />
+      <text x="18" y="11" font-family="'Inter', sans-serif" font-weight="800" font-size="10.5" fill="#1E293B" letter-spacing="1.2">SERVE</text>
+    </g>
+  </g>
+</svg>

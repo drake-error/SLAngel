@@ -282,17 +282,19 @@ export function App() {
       {/* LEFT SIDEBAR NAVIGATION */}
       <aside className="w-64 bg-white dark:bg-[#111827] border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between select-none shrink-0">
         <div>
-          {/* Logo */}
-          <div className="px-6 py-5 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#0F4A44] dark:bg-emerald-600 text-white flex items-center justify-center shadow-md">
-              <Shield className="w-5 h-5" />
+          {/* Logo & Brand Header */}
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-3">
+            <div className="w-11 h-11 shrink-0 flex items-center justify-center">
+              <img src="slangel_logo.svg" alt="SLAngel Logo" className="w-full h-full object-contain drop-shadow-sm" />
             </div>
-            <div>
-              <h1 className="text-base font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
-                DelayGuard
-              </h1>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                Gov SLA Intelligence
+            <div className="overflow-hidden">
+              <div className="flex items-center">
+                <span className="text-xl font-black tracking-tight text-[#103778] dark:text-blue-400 font-sans">
+                  SL<span className="text-emerald-500">A</span><span className="text-emerald-600 dark:text-emerald-400">ngel</span>
+                </span>
+              </div>
+              <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider truncate">
+                Smart Support for Smart Officers
               </p>
             </div>
           </div>
