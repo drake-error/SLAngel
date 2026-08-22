@@ -1,0 +1,12 @@
+{
+  "include": [
+    "backend"
+  ],
+  "extraPaths": [
+    "./backend",
+    "./backend/app",
+    "c:/Users/Darwin/OneDrive/Desktop/SLAngel/backend",
+    "c:/Users/Darwin/OneDrive/Desktop/SLAngel/backend/app"
+  ],
+  "pythonPath": "C:\\Users\\Darwin\\AppData\\Local\\Programs\\Python\\Python311\\python.exe"
+}

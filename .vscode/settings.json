@@ -1,0 +1,15 @@
+{
+  "python.defaultInterpreterPath": "C:\\Users\\Darwin\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/backend",
+    "${workspaceFolder}/backend/app",
+    "c:/Users/Darwin/OneDrive/Desktop/SLAngel/backend",
+    "c:/Users/Darwin/OneDrive/Desktop/SLAngel/backend/app"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/backend",
+    "${workspaceFolder}/backend/app",
+    "c:/Users/Darwin/OneDrive/Desktop/SLAngel/backend",
+    "c:/Users/Darwin/OneDrive/Desktop/SLAngel/backend/app"
+  ]
+}

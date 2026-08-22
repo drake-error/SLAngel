@@ -1,5 +1,4 @@
 # Dependencies
-node_modules
 node_modules/
 frontend/node_modules/
 __pycache__/
@@ -13,9 +12,6 @@ __pycache__/
 *.db
 
 # IDE
-.vscode
-.vscode/
-.idea
 .idea/
 
 # OS
@@ -23,7 +19,6 @@ __pycache__/
 Thumbs.db
 
 # Build
-dist
 dist/
 dist-ssr
 build/
