@@ -21,6 +21,8 @@ from app.services.sla_engine import update_application_sla
 from app.services.prediction import predict_delay, update_application_prediction
 from app.services.priority_engine import update_application_priority
 from app.services.alert_engine import generate_alerts_for_application, resolve_alerts_for_application
+from app.services.recommendation_engine import generate_recommendation
+from app.services.citizen_message import generate_citizen_message
 from app.auth.auth import get_current_user
 
 router = APIRouter(prefix="/api/applications", tags=["Applications"])
@@ -92,6 +94,10 @@ def _to_response(app: Application) -> dict:
     elif app.risk_level == RiskLevel.LOW.value:
         frontend_risk = "Low"
 
+    # Generate recommendation and citizen message
+    recommendation = generate_recommendation(app)
+    citizen_message = generate_citizen_message(app)
+
     return {
         "id": app.application_number,
         "application_number": app.application_number,
@@ -129,6 +135,8 @@ def _to_response(app: Application) -> dict:
         "last_action_date": app.last_action_date.isoformat() if app.last_action_date else None,
         "created_at": app.created_at.isoformat() if app.created_at else None,
         "updated_at": app.updated_at.isoformat() if app.updated_at else None,
+        "recommendation": recommendation,
+        "citizen_message": citizen_message,
     }
 
 
@@ -591,3 +599,37 @@ def get_application_prediction(application_id: str, db: Session = Depends(get_db
 
     prediction = predict_delay(app, db)
     return prediction.model_dump()
+
+
+@router.get("/{application_id}/recommendation")
+def get_application_recommendation(application_id: str, db: Session = Depends(get_db)):
+    """Get recommended action for an application."""
+    app = db.query(Application).options(
+        joinedload(Application.documents),
+    ).filter(
+        or_(
+            Application.application_number == application_id,
+            Application.id == int(application_id) if application_id.isdigit() else False,
+        )
+    ).first()
+
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    return generate_recommendation(app, db)
+
+
+@router.get("/{application_id}/citizen-message")
+def get_citizen_message(application_id: str, db: Session = Depends(get_db)):
+    """Get citizen-facing status message for an application."""
+    app = db.query(Application).filter(
+        or_(
+            Application.application_number == application_id,
+            Application.id == int(application_id) if application_id.isdigit() else False,
+        )
+    ).first()
+
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    return generate_citizen_message(app)

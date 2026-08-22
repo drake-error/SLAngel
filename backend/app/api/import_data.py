@@ -186,3 +186,68 @@ async def import_json(file: UploadFile = File(...), db: Session = Depends(get_db
         "failed": failed,
         "errors": errors[:20],
     }
+
+
+@router.post("/excel")
+async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Import applications from an Excel (.xlsx) file."""
+    if not file.filename.endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="File must be an Excel file (.xlsx or .xls)")
+
+    try:
+        import openpyxl
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="openpyxl is not installed. Excel import is not available."
+        )
+
+    content = await file.read()
+    wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True)
+    ws = wb.active
+
+    rows = list(ws.iter_rows(values_only=True))
+    if len(rows) < 2:
+        raise HTTPException(status_code=400, detail="Excel file is empty or has no data rows")
+
+    headers = [str(h).strip().lower().replace(" ", "_") if h else f"col_{i}" for i, h in enumerate(rows[0])]
+
+    # Validate required columns
+    missing = REQUIRED_CSV_COLUMNS - set(headers)
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required columns: {', '.join(missing)}"
+        )
+
+    total = 0
+    imported = 0
+    failed = 0
+    errors = []
+
+    for i, row in enumerate(rows[1:], start=2):
+        total += 1
+        record = {}
+        for j, header in enumerate(headers):
+            if j < len(row):
+                val = row[j]
+                record[header] = str(val) if val is not None else ""
+            else:
+                record[header] = ""
+
+        app, error = _import_single_record(record, db)
+        if error:
+            failed += 1
+            errors.append(f"Row {i}: {error}")
+        else:
+            imported += 1
+
+    db.commit()
+    wb.close()
+
+    return {
+        "total_rows": total,
+        "imported": imported,
+        "failed": failed,
+        "errors": errors[:20],
+    }
