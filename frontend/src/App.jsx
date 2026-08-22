@@ -24,8 +24,10 @@ import {
   Moon, 
   Sun,
   TrendingUp,
-  UserCheck
+  UserCheck,
+  Film
 } from 'lucide-react';
+import IntroAnimation from './components/IntroAnimation';
 
 const initialApplications = [
   {
@@ -173,6 +175,7 @@ export function App() {
   const [isRebalanceModalOpen, setIsRebalanceModalOpen] = useState(false);
   const [isExportReportOpen, setIsExportReportOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
   const [toastMessage, setToastMessage] = useState(null);
 
   const showToast = (msg) => {
@@ -273,6 +276,8 @@ export function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#f8f9fa] dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 antialiased font-sans">
+      {/* Intro Video Animation */}
+      {showIntro && <IntroAnimation onComplete={() => setShowIntro(false)} />}
       
       {/* LEFT SIDEBAR NAVIGATION */}
       <aside className="w-64 bg-white dark:bg-[#111827] border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between select-none shrink-0">
@@ -388,6 +393,15 @@ export function App() {
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             </div>
+
+            <button
+              onClick={() => setShowIntro(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold transition"
+              title="Replay Intro Animation"
+            >
+              <Film className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <span className="hidden sm:inline">Intro</span>
+            </button>
 
             <button
               onClick={() => setDarkMode(!darkMode)}

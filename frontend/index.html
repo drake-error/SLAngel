@@ -669,11 +669,11 @@
         <div className="flex h-screen w-screen overflow-hidden bg-[#f8f9fa] dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 antialiased font-sans relative">
           
           {/* ========================================================================= */}
-          {/* FULLSCREEN INTRO VIDEO ANIMATION OVERLAY                                 */}
+          {/* FULLSCREEN INTRO VIDEO ANIMATION OVERLAY (TRUE FULLSCREEN)               */}
           {/* ========================================================================= */}
           {showIntro && (
             <div 
-              className={`fixed inset-0 z-[99999] bg-black flex items-center justify-center transition-all duration-700 select-none ${
+              className={`fixed inset-0 z-[99999] w-screen h-screen bg-white overflow-hidden transition-all duration-700 ease-out select-none ${
                 introFading ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
               }`}
             >
@@ -685,7 +685,7 @@
                 playsInline
                 onEnded={handleVideoEnd}
                 onError={() => {
-                  console.warn("Intro video playback issue, transitioning to dashboard...");
+                  console.warn("Intro video issue, falling back to dashboard...");
                   setShowIntro(false);
                 }}
                 onTimeUpdate={(e) => {
@@ -693,82 +693,63 @@
                     setVideoProgress((e.target.currentTime / e.target.duration) * 100);
                   }
                 }}
-                className="w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover"
               >
-                <source src="Video Project (1).mp4" type="video/mp4" />
-                <source src="./Video Project (1).mp4" type="video/mp4" />
-                <source src="./Video%20Project%20(1).mp4" type="video/mp4" />
-                Your browser does not support the video tag.
+                <source src="Logo_intro_animation_202608222305.mp4" type="video/mp4" />
+                <source src="./Logo_intro_animation_202608222305.mp4" type="video/mp4" />
+                <source src="/Logo_intro_animation_202608222305.mp4" type="video/mp4" />
+                <source src="intro.mp4" type="video/mp4" />
+                <source src="/intro.mp4" type="video/mp4" />
               </video>
 
-              {/* Ambient Vignette Gradients */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/60 pointer-events-none"></div>
+              {/* Floating Top-Right Controls */}
+              <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    const newMuted = !isMuted;
+                    setIsMuted(newMuted);
+                    if (videoRef.current) {
+                      videoRef.current.muted = newMuted;
+                    }
+                  }}
+                  className="p-2.5 rounded-full text-slate-600 hover:text-slate-900 bg-white/80 hover:bg-white backdrop-blur-md border border-slate-200/80 shadow-md transition-all duration-200 hover:scale-105"
+                  title={isMuted ? "Unmute Audio" : "Mute Audio"}
+                >
+                  {isMuted ? <Icons.VolumeX className="w-4 h-4" /> : <Icons.Volume2 className="w-4 h-4 text-[#0F4A44]" />}
+                </button>
 
-              {/* Top Bar on Video: Logo Tag + Sound Toggle + Skip Intro */}
-              <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-20">
-                <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/15 text-white">
-                  <div className="w-6 h-6 rounded-full bg-[#0F4A44] flex items-center justify-center shadow-sm">
-                    <Icons.Shield className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <span className="text-xs font-bold tracking-tight">DelayGuard</span>
-                    <span className="text-[10px] text-white/60 ml-2">Gov SLA Intelligence</span>
-                  </div>
-                </div>
+                <button
+                  onClick={handleSkipIntro}
+                  className="group flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-wide text-slate-700 hover:text-white bg-white/80 hover:bg-[#0F4A44] backdrop-blur-md border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer"
+                >
+                  <span>Skip Intro</span>
+                  <Icons.ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+                </button>
+              </div>
 
-                <div className="flex items-center gap-2.5">
-                  {/* Sound Toggle Button */}
-                  <button
-                    onClick={() => {
-                      const newMuted = !isMuted;
-                      setIsMuted(newMuted);
-                      if (videoRef.current) {
-                        videoRef.current.muted = newMuted;
-                      }
-                    }}
-                    className="p-2.5 bg-black/40 hover:bg-black/75 backdrop-blur-md text-white border border-white/20 rounded-full transition hover:scale-105"
-                    title={isMuted ? "Unmute Audio" : "Mute Audio"}
-                  >
-                    {isMuted ? <Icons.VolumeX className="w-4 h-4 text-white/80" /> : <Icons.Volume2 className="w-4 h-4 text-emerald-400" />}
-                  </button>
-
-                  {/* Skip Intro Button */}
-                  <button
-                    onClick={handleSkipIntro}
-                    className="group px-4 py-2 bg-black/40 hover:bg-black/80 backdrop-blur-md text-white border border-white/25 hover:border-emerald-400 rounded-full text-xs font-bold tracking-wider uppercase transition flex items-center gap-2 shadow-2xl hover:scale-105"
-                  >
-                    <span>Skip Intro</span>
-                    <Icons.ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                  </button>
+              {/* Floating Bottom Status Pill */}
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+                <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/90 backdrop-blur-md text-[#0F4A44] border border-slate-200/80 shadow-lg text-xs font-semibold tracking-wide">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>
+                    {videoProgress < 25 
+                      ? 'Initializing SLA-Angel Governance Engine...' 
+                      : videoProgress < 55 
+                        ? 'Synchronizing Statutory Service Guarantee Matrix...' 
+                        : videoProgress < 85 
+                          ? 'Calibrating Real-Time SLA Risk & Escalation Monitor...' 
+                          : 'SLA-Angel Governance System Ready'}
+                  </span>
+                  <span className="font-mono text-slate-400 font-normal pl-1">({Math.round(videoProgress)}%)</span>
                 </div>
               </div>
 
-              {/* Bottom Status Panel & Animated SLA Progress Bar */}
-              <div className="absolute bottom-8 left-6 right-6 max-w-xl mx-auto z-20">
-                <div className="bg-black/60 backdrop-blur-xl p-4 rounded-2xl border border-white/15 text-white shadow-2xl space-y-2.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                      <span className="font-semibold tracking-wide text-slate-200">System Initializing</span>
-                    </div>
-                    <span className="font-mono text-[11px] text-emerald-400 font-bold">
-                      {Math.round(videoProgress)}%
-                    </span>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="w-full h-1.5 bg-white/15 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-300 rounded-full transition-all duration-100"
-                      style={{ width: `${videoProgress}%` }}
-                    ></div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] text-slate-400">
-                    <span>Real-time Statutory SLA Intelligence</span>
-                    <span>Press ESC or Skip to Enter Dashboard</span>
-                  </div>
-                </div>
+              {/* Ultra-sleek Full-Width Bottom Progress Line */}
+              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-100/60 z-30">
+                <div
+                  className="h-full bg-gradient-to-r from-teal-600 via-emerald-500 to-[#0F4A44] transition-all duration-150 ease-out shadow-sm"
+                  style={{ width: `${Math.max(2, videoProgress)}%` }}
+                />
               </div>
             </div>
           )}
