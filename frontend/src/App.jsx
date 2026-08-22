@@ -7,8 +7,8 @@ import {
   Bell, 
   CheckSquare, 
   BarChart3, 
-  Sliders, 
-  Server, 
+  Upload, 
+  MessageSquare, 
   HelpCircle, 
   AlertTriangle, 
   AlertCircle, 
@@ -152,6 +152,12 @@ export function App() {
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [toastMessage, setToastMessage] = useState(null);
+
+  // File upload state
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadDragActive, setUploadDragActive] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   // New application form state
   const [newAppForm, setNewAppForm] = useState({
@@ -299,6 +305,47 @@ export function App() {
     setApplications([]);
   };
 
+  // ─── File Upload Handler ────────────────────────────────────────────────
+  const handleFileUpload = async () => {
+    if (!uploadFile) return;
+    setUploadLoading(true);
+    setUploadResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      const ext = uploadFile.name.split('.').pop().toLowerCase();
+      let endpoint = '/import/csv';
+      if (ext === 'json') endpoint = '/import/json';
+      else if (ext === 'xlsx' || ext === 'xls') endpoint = '/import/excel';
+
+      const token = localStorage.getItem('slangel_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+        throw new Error(err.detail || 'Upload failed');
+      }
+      const result = await res.json();
+      setUploadResult(result);
+      setUploadFile(null);
+      if (result.imported > 0) {
+        showToast(`✅ ${result.imported} application(s) imported successfully!`);
+        fetchData();
+      }
+    } catch (err) {
+      setUploadResult({ error: err.message });
+      showToast(`❌ Upload error: ${err.message}`);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
   // ─── Auth Guard ─────────────────────────────────────────────────────────
   if (!isLoggedIn) {
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]"><p className="text-slate-500">Loading...</p></div>;
@@ -346,12 +393,12 @@ export function App() {
             {[
               { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
               { id: 'applications', label: 'Applications', icon: FolderGit2, badge: applications.length },
+              { id: 'data-import', label: 'Data Import', icon: Upload },
               { id: 'priority-queue', label: 'Priority Queue', icon: AlertOctagon, badge: applications.filter(a => a.riskLevel === 'Critical' || a.riskLevel === 'High').length || '0' },
               { id: 'sla-alerts', label: 'SLA Alerts', icon: Bell, alertCount: alerts.length || '0' },
               { id: 'verification', label: 'Verification', icon: CheckSquare },
               { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-              { id: 'services', label: 'Services', icon: Sliders },
-              { id: 'administration', label: 'Administration', icon: Server },
+              { id: 'citizen-updates', label: 'Citizen Updates', icon: MessageSquare },
             ].map((item) => {
               const isActive = activeTab === item.id;
               const IconComp = item.icon;
@@ -438,7 +485,6 @@ export function App() {
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             </div>
 
-<<<<<<< HEAD
             <button
               onClick={() => setShowIntro(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold transition"
@@ -453,9 +499,6 @@ export function App() {
               className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               title="Toggle Theme"
             >
-=======
-            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Toggle Theme">
->>>>>>> 845324d (Configure Vercel deployment and update frontend with API integration)
               {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
 
@@ -782,40 +825,210 @@ export function App() {
             </div>
           )}
 
-          {/* Priority Queue Tab */}
+          {/* Data Import Tab */}
+          {activeTab === 'data-import' && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Import Application Data</h3>
+                    <p className="text-xs text-slate-500 mt-1">Upload CSV, Excel (.xlsx), or JSON files to bulk-import applications</p>
+                  </div>
+                </div>
+
+                {/* Drag and Drop Zone */}
+                <div
+                  className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
+                    uploadDragActive
+                      ? 'border-[#0F4A44] bg-emerald-50 dark:bg-emerald-950/20'
+                      : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
+                  }`}
+                  onDragOver={(e) => { e.preventDefault(); setUploadDragActive(true); }}
+                  onDragLeave={() => setUploadDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setUploadDragActive(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) setUploadFile(file);
+                  }}
+                >
+                  <Upload className="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {uploadFile ? uploadFile.name : 'Drag & drop your file here'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {uploadFile
+                      ? `${(uploadFile.size / 1024).toFixed(1)} KB — Ready to upload`
+                      : 'Supports CSV, Excel (.xlsx), and JSON files'}
+                  </p>
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    <label className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                      Browse Files
+                      <input
+                        type="file"
+                        accept=".csv,.json,.xlsx,.xls"
+                        className="hidden"
+                        onChange={(e) => { if (e.target.files[0]) setUploadFile(e.target.files[0]); }}
+                      />
+                    </label>
+                    {uploadFile && (
+                      <button
+                        onClick={handleFileUpload}
+                        disabled={uploadLoading}
+                        className="px-4 py-2 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded-lg text-xs font-bold transition disabled:opacity-50"
+                      >
+                        {uploadLoading ? 'Uploading...' : 'Upload & Process'}
+                      </button>
+                    )}
+                    {uploadFile && (
+                      <button onClick={() => { setUploadFile(null); setUploadResult(null); }}
+                        className="px-3 py-2 text-slate-500 hover:text-red-500 text-xs font-medium transition">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Required Fields Info */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/50">
+                  <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" /> Required Columns
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['applicant_name', 'service_type', 'department'].map(col => (
+                      <div key={col} className="flex items-center gap-1.5 text-[11px]">
+                        <Check className="w-3 h-3 text-blue-600" />
+                        <span className="font-mono text-blue-700 dark:text-blue-400">{col}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-2">
+                    Optional: <span className="font-mono">applicant_contact, district, sla_days, stage, status, submission_date, purpose</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload Results */}
+              {uploadResult && (
+                <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Import Results</h3>
+                  {uploadResult.error ? (
+                    <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-900/50">
+                      <p className="text-xs font-bold text-red-700 dark:text-red-400">❌ Upload Error</p>
+                      <p className="text-xs text-red-600 dark:text-red-300 mt-1">{uploadResult.error}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-center">
+                          <div className="text-2xl font-extrabold text-slate-900 dark:text-white">{uploadResult.total_rows}</div>
+                          <div className="text-xs font-semibold text-slate-500 mt-1">Total Records</div>
+                        </div>
+                        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl text-center">
+                          <div className="text-2xl font-extrabold text-emerald-600">{uploadResult.imported}</div>
+                          <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mt-1">Successfully Imported</div>
+                        </div>
+                        <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-xl text-center">
+                          <div className="text-2xl font-extrabold text-red-600">{uploadResult.failed}</div>
+                          <div className="text-xs font-semibold text-red-700 dark:text-red-400 mt-1">Failed</div>
+                        </div>
+                      </div>
+                      {uploadResult.errors?.length > 0 && (
+                        <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/50">
+                          <p className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-2">Errors ({uploadResult.errors.length})</p>
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {uploadResult.errors.map((err, i) => (
+                              <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400">• {err}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Priority Queue Tab — Enhanced with Rank, Risk-First Sorting, and Recommendation */}
           {activeTab === 'priority-queue' && (
             <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-6">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Urgent Applications (High & Critical Risk)</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Priority Queue — Risk-First Ranking</h3>
+                <p className="text-xs text-slate-500">Sorted by Risk Level → then SLA Deadline</p>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold">
-                      <th className="py-3 px-4">App ID</th><th className="py-3 px-4">Applicant</th><th className="py-3 px-4">Service</th>
-                      <th className="py-3 px-3 text-center">Days Rem.</th><th className="py-3 px-3">Risk</th><th className="py-3 px-4">Risk Reasons</th>
+                      <th className="py-3 px-3 text-center">#</th>
+                      <th className="py-3 px-4">App ID</th>
+                      <th className="py-3 px-4">Applicant</th>
+                      <th className="py-3 px-4">Service</th>
+                      <th className="py-3 px-3 text-center">Days Rem.</th>
+                      <th className="py-3 px-3">Risk</th>
+                      <th className="py-3 px-3">Priority</th>
+                      <th className="py-3 px-4">Recommended Action</th>
                       <th className="py-3 px-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {applications
-                      .filter(a => (a.riskLevel === 'Critical' || a.riskLevel === 'High') && a.status !== 'Approved' && a.status !== 'Completed')
-                      .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
-                      .map(app => (
-                      <tr key={app.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected')
+                      .sort((a, b) => {
+                        const riskOrder = { 'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
+                        const riskA = riskOrder[a.riskLevel] ?? 4;
+                        const riskB = riskOrder[b.riskLevel] ?? 4;
+                        if (riskA !== riskB) return riskA - riskB;
+                        return (a.daysRemaining || 999) - (b.daysRemaining || 999);
+                      })
+                      .map((app, idx) => (
+                      <tr key={app.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 ${idx < 3 ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
+                        <td className="py-3.5 px-3 text-center">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-extrabold ${
+                            idx < 3 ? 'bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-300' :
+                            idx < 6 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300' :
+                            'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                          }`}>
+                            {idx + 1}
+                          </span>
+                        </td>
                         <td className="py-3.5 px-4 font-bold">{app.id}</td>
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
-                        <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : ''}`}>{app.daysRemaining}</td>
+                        <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : app.daysRemaining <= 3 ? 'text-amber-600' : ''}`}>
+                          {app.daysRemaining}
+                        </td>
                         <td className="py-3.5 px-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            app.riskLevel === 'Critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                            app.riskLevel === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' :
+                            app.riskLevel === 'High' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400' :
+                            app.riskLevel === 'Medium' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400' :
+                            'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
                           }`}>{app.riskLevel} ({app.risk_score?.toFixed(0)})</span>
                         </td>
-                        <td className="py-3.5 px-4 max-w-xs">
-                          <div className="space-y-0.5">
-                            {(app.risk_factors || []).slice(0, 2).map((r, i) => (
-                              <p key={i} className="text-[10px] text-slate-500 dark:text-slate-400 truncate">• {r}</p>
-                            ))}
-                          </div>
+                        <td className="py-3.5 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            app.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                            app.priority === 'URGENT' ? 'bg-orange-100 text-orange-700' :
+                            app.priority === 'HIGH' ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                          }`}>{app.priority}</span>
+                        </td>
+                        <td className="py-3.5 px-4 max-w-[200px]">
+                          {app.recommendation ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                app.recommendation.severity === 'critical' ? 'bg-red-500' :
+                                app.recommendation.severity === 'high' ? 'bg-amber-500' :
+                                app.recommendation.severity === 'medium' ? 'bg-blue-500' :
+                                'bg-emerald-500'
+                              }`}></span>
+                              <span className="text-[11px] text-slate-700 dark:text-slate-300 truncate font-medium">{app.recommendation.action}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">—</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <button onClick={() => setSelectedAppForReview(app)}
@@ -911,36 +1124,123 @@ export function App() {
             </div>
           )}
 
-          {/* Analytics Tab */}
-          {activeTab === 'analytics' && dashboardData && (
+          {/* Citizen Updates Tab */}
+          {activeTab === 'citizen-updates' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {[
-                  { label: 'SLA Compliance', value: `${dashboardData.sla_compliance_percentage}%`, color: 'text-emerald-600' },
-                  { label: 'Breach Rate', value: `${dashboardData.sla_breach_rate}%`, color: 'text-red-600' },
-                  { label: 'Avg Processing', value: `${dashboardData.avg_processing_time} days`, color: 'text-blue-600' },
-                  { label: 'Total Completed', value: dashboardData.completed_applications, color: 'text-slate-900 dark:text-white' },
-                ].map(item => (
-                  <div key={item.label} className="bg-white dark:bg-[#111827] rounded-xl p-5 border border-slate-200 dark:border-slate-800">
-                    <span className="text-xs font-semibold text-slate-500">{item.label}</span>
-                    <div className={`text-2xl font-extrabold mt-2 ${item.color}`}>{item.value}</div>
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Citizen Communication & Status Updates</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Auto-generated, plain-language status messages translated for citizens based on real-time SLA and risk status
+                    </p>
                   </div>
-                ))}
-              </div>
-              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Officer Workload</h3>
-                <div className="space-y-3">
-                  {officersList.map(officer => (
-                    <div key={officer.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{officer.name}</p>
-                        <p className="text-xs text-slate-500">{officer.title} • {officer.district}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      {applications.length} Messages Generated
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {filteredApplications.map(app => {
+                    const msg = app.citizen_message || {
+                      status_label: app.status,
+                      message: `Your ${app.service} application is currently being processed.`,
+                      detail: `It has been ${app.daysHeld || 0} days since submission.`,
+                      next_steps: "No action required from your end.",
+                      urgency: app.riskLevel === 'Critical' ? 'urgent' : app.riskLevel === 'High' ? 'attention' : 'normal',
+                      estimated_completion: `${app.daysRemaining} days remaining`
+                    };
+
+                    const urgencyStyles = {
+                      completed: 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300',
+                      urgent: 'border-red-200 dark:border-red-900/50 bg-red-50/40 dark:bg-red-950/20 text-red-800 dark:text-red-300',
+                      attention: 'border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300',
+                      normal: 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 text-slate-800 dark:text-slate-200'
+                    };
+
+                    return (
+                      <div
+                        key={app.id}
+                        className={`rounded-xl border p-5 transition hover:shadow-md ${urgencyStyles[msg.urgency] || urgencyStyles.normal}`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/50">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white">
+                              {app.id}
+                            </span>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                                {app.applicantName} <span className="text-slate-400 font-normal">({app.phone || 'No phone'})</span>
+                              </h4>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {app.service} • {app.department}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                              msg.urgency === 'completed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300' :
+                              msg.urgency === 'urgent' ? 'bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300' :
+                              msg.urgency === 'attention' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300' :
+                              'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
+                            }`}>
+                              {msg.status_label}
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              SLA: {app.daysRemaining}d left
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Message Body */}
+                        <div className="mt-3 space-y-2 text-xs">
+                          <div className="p-3 bg-white/80 dark:bg-slate-900/60 rounded-lg border border-slate-200/60 dark:border-slate-700/50">
+                            <p className="font-semibold text-slate-900 dark:text-white text-sm">
+                              💬 "{msg.message}"
+                            </p>
+                            <p className="text-slate-600 dark:text-slate-300 text-xs mt-1.5 leading-relaxed">
+                              {msg.detail}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                            <div>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">Next Steps: </span>
+                              {msg.next_steps}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`Dear ${app.applicantName}, ${msg.message} Status: ${msg.status_label}. Est: ${msg.estimated_completion}. - Govt Services`);
+                                  showToast(`📋 SMS text copied for ${app.applicantName}!`);
+                                }}
+                                className="px-3 py-1.5 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold transition"
+                              >
+                                Copy SMS
+                              </button>
+                              <button
+                                onClick={() => {
+                                  showToast(`📲 SMS update dispatched to ${app.phone || 'citizen'}!`);
+                                }}
+                                className="px-3 py-1.5 rounded bg-[#0F4A44] hover:bg-[#0B3834] text-white font-semibold transition"
+                              >
+                                Send Update
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs">
-                        <span className="font-bold text-slate-900 dark:text-white">{officer.activeCases} active</span>
-                      </div>
+                    );
+                  })}
+
+                  {filteredApplications.length === 0 && (
+                    <div className="text-center py-12 text-slate-500">
+                      <MessageSquare className="w-10 h-10 mx-auto mb-2 text-slate-400" />
+                      <p>No applications match your search or filters.</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -951,63 +1251,187 @@ export function App() {
       {/* Review Modal */}
       {selectedAppForReview && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white dark:bg-[#111827] w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-[#111827] w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Review {selectedAppForReview.id} — {selectedAppForReview.service}
-              </h3>
-              <button onClick={() => setSelectedAppForReview(null)} className="text-slate-400">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Review {selectedAppForReview.id}</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    selectedAppForReview.riskLevel === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' :
+                    selectedAppForReview.riskLevel === 'High' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400' :
+                    selectedAppForReview.riskLevel === 'Medium' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400' :
+                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                  }`}>
+                    {selectedAppForReview.riskLevel} Risk ({selectedAppForReview.risk_score?.toFixed(0)}/100)
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {selectedAppForReview.service} • {selectedAppForReview.department}
+                </p>
+              </div>
+              <button onClick={() => setSelectedAppForReview(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Quick Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
+                <span className="text-slate-500 text-[11px] font-semibold">Statutory SLA</span>
+                <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{selectedAppForReview.statutorySLA || 15} Days</p>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
+                <span className="text-slate-500 text-[11px] font-semibold">Time Elapsed</span>
+                <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{selectedAppForReview.daysHeld || 0} Days</p>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
+                <span className="text-slate-500 text-[11px] font-semibold">Time Remaining</span>
+                <p className={`text-sm font-bold mt-1 ${selectedAppForReview.daysRemaining <= 1 ? 'text-red-600' : selectedAppForReview.daysRemaining <= 3 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  {selectedAppForReview.daysRemaining} Days
+                </p>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
+                <span className="text-slate-500 text-[11px] font-semibold">Status / Stage</span>
+                <p className="text-sm font-bold text-slate-900 dark:text-white mt-1 truncate">{selectedAppForReview.stage || selectedAppForReview.status}</p>
+              </div>
+            </div>
+
+            {/* AI Recommendation Panel */}
+            {selectedAppForReview.recommendation && (
+              <div className={`p-4 rounded-xl border ${
+                selectedAppForReview.recommendation.severity === 'critical' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50' :
+                selectedAppForReview.recommendation.severity === 'high' ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50' :
+                selectedAppForReview.recommendation.severity === 'medium' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/50' :
+                'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50'
+              }`}>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className={`w-4 h-4 ${
+                      selectedAppForReview.recommendation.severity === 'critical' ? 'text-red-600' :
+                      selectedAppForReview.recommendation.severity === 'high' ? 'text-amber-600' :
+                      selectedAppForReview.recommendation.severity === 'medium' ? 'text-blue-600' :
+                      'text-emerald-600'
+                    }`} />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      Recommended Action: {selectedAppForReview.recommendation.action}
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-white/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                    {selectedAppForReview.recommendation.title}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {selectedAppForReview.recommendation.description}
+                </p>
+
+                {selectedAppForReview.recommendation.reasons?.length > 0 && (
+                  <div className="mt-2.5 space-y-1">
+                    {selectedAppForReview.recommendation.reasons.map((reason, idx) => (
+                      <p key={idx} className="text-[11px] text-slate-600 dark:text-slate-400 flex items-start gap-1.5">
+                        <span className="text-slate-400 font-bold">•</span>
+                        <span>{reason}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {selectedAppForReview.recommendation.quick_actions?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/50 flex flex-wrap gap-2">
+                    {selectedAppForReview.recommendation.quick_actions.map((act, idx) => (
+                      <button
+                        key={idx}
+                        onClick={async () => {
+                          if (act.includes('Escalate') || act.includes('Fast-Track')) {
+                            await handleExpediteApp(selectedAppForReview.id, `Officer Action: ${act}`);
+                          } else if (act.includes('Reassign')) {
+                            showToast(`🔄 Reassignment requested for ${selectedAppForReview.id}`);
+                          } else {
+                            showToast(`⚡ Action executed: ${act}`);
+                          }
+                          setSelectedAppForReview(null);
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0F4A44] hover:bg-[#0B3834] text-white transition shadow-sm"
+                      >
+                        ⚡ {act}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Citizen Message Preview Card */}
+            {selectedAppForReview.citizen_message && (
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-blue-500" /> Citizen Communication
+                  </h4>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300">
+                    {selectedAppForReview.citizen_message.status_label}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-slate-800 dark:text-slate-200 italic">
+                  "{selectedAppForReview.citizen_message.message}"
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                  <span>Next: {selectedAppForReview.citizen_message.next_steps}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedAppForReview.citizen_message.message);
+                      showToast('📋 Copied citizen update to clipboard!');
+                    }}
+                    className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Applicant Details & Documents */}
             <div className="text-xs space-y-3">
-              <p><span className="font-semibold">Applicant:</span> {selectedAppForReview.applicantName} ({selectedAppForReview.phone})</p>
-              <p><span className="font-semibold">Department:</span> {selectedAppForReview.department}</p>
-              <p><span className="font-semibold">Aadhaar Status:</span> {selectedAppForReview.aadhaarStatus}</p>
-              <p><span className="font-semibold">Purpose:</span> {selectedAppForReview.purpose}</p>
-              <p><span className="font-semibold">Statutory SLA Remaining:</span> <span className={`font-bold ${selectedAppForReview.daysRemaining <= 2 ? 'text-red-600' : 'text-emerald-600'}`}>{selectedAppForReview.daysRemaining} days</span></p>
-              <p><span className="font-semibold">Risk Score:</span> <span className="font-bold">{selectedAppForReview.risk_score?.toFixed(1)} ({selectedAppForReview.riskLevel})</span></p>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p><span className="font-semibold">Applicant:</span> {selectedAppForReview.applicantName}</p>
+                  <p><span className="font-semibold">Phone:</span> {selectedAppForReview.phone || 'N/A'}</p>
+                  <p><span className="font-semibold">Aadhaar:</span> {selectedAppForReview.aadhaarStatus || 'Verified'}</p>
+                </div>
+                <div>
+                  <p><span className="font-semibold">Assigned Officer:</span> {selectedAppForReview.assignedOfficer || 'Auto-Assigned'}</p>
+                  <p><span className="font-semibold">Purpose:</span> {selectedAppForReview.purpose || 'Official Certification'}</p>
+                  <p><span className="font-semibold">Annual Income:</span> {selectedAppForReview.annualIncome || 'N/A'}</p>
+                </div>
+              </div>
+
               {selectedAppForReview.predicted_delay && (
                 <p className="text-red-600 font-bold">⚠️ Predicted Delay: {selectedAppForReview.predicted_delay_days} days</p>
               )}
-              {selectedAppForReview.risk_factors?.length > 0 && (
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Risk Factors:</p>
-                  {selectedAppForReview.risk_factors.map((r, i) => (
-                    <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400">• {r}</p>
-                  ))}
-                </div>
-              )}
+
               {selectedAppForReview.documents?.length > 0 && (
                 <div>
-                  <p className="font-semibold mb-1">Documents:</p>
-                  {selectedAppForReview.documents.map((doc, i) => (
-                    <div key={i} className="flex items-center gap-2 py-1">
-                      {doc.verified ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <X className="w-3.5 h-3.5 text-red-400" />}
-                      <span className="text-slate-700 dark:text-slate-300">{doc.name}</span>
-                      <span className="text-slate-400 text-[10px]">{doc.size}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {selectedAppForReview.timeline?.length > 0 && (
-                <div>
-                  <p className="font-semibold mb-1">Timeline:</p>
-                  {selectedAppForReview.timeline.map((event, i) => (
-                    <div key={i} className="flex gap-2 py-1 border-l-2 border-slate-200 dark:border-slate-700 pl-3 ml-1">
-                      <span className="text-slate-400 text-[10px] w-20 shrink-0">{event.date}</span>
-                      <span className="text-slate-700 dark:text-slate-300">{event.title}</span>
-                    </div>
-                  ))}
+                  <p className="font-semibold mb-1 text-slate-900 dark:text-white">Documents Checklist:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedAppForReview.documents.map((doc, i) => (
+                      <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2 truncate">
+                          {doc.verified ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <X className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+                          <span className="text-slate-700 dark:text-slate-300 truncate">{doc.name}</span>
+                        </div>
+                        <span className="text-slate-400 text-[10px] shrink-0">{doc.size || 'PDF'}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-            <div className="flex justify-end gap-2 pt-4">
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button onClick={() => setSelectedAppForReview(null)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold">
                 Close
               </button>
               {selectedAppForReview.status !== 'Approved' && selectedAppForReview.status !== 'Completed' && (
-                <button onClick={() => handleApproveApp(selectedAppForReview.id)} className="px-4 py-2 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded-lg text-xs font-bold">
+                <button onClick={() => handleApproveApp(selectedAppForReview.id)} className="px-4 py-2 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded-lg text-xs font-bold transition shadow-sm">
                   Approve & Issue Certificate
                 </button>
               )}
