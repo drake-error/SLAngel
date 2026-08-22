@@ -62,37 +62,25 @@ export default function IntroAnimation({ onComplete }) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center overflow-hidden transition-all duration-700 ease-out select-none ${
+      className={`fixed inset-0 z-[100] w-screen h-screen bg-white overflow-hidden transition-all duration-700 ease-out select-none ${
         isFading ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
-      style={{
-        background: 'radial-gradient(ellipse at 50% 50%, #f7f9fa 0%, #eef2f5 50%, #e2e7ec 100%)'
-      }}
     >
-      {/* Background Ambient Glow */}
-      <div className="absolute inset-0 bg-gradient-to-r from-teal-500/5 via-transparent to-teal-500/5 pointer-events-none" />
-
-      {/* Fullscreen Video Player with Seamless Edge Feathering */}
-      <div className="relative w-full h-full flex items-center justify-center">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted={isMuted}
-          playsInline
-          onEnded={finishIntro}
-          className="w-full h-full object-contain [filter:drop-shadow(0_10px_30px_rgba(0,0,0,0.04))]"
-        >
-          <source src="Logo_intro_animation_202608222305.mp4" type="video/mp4" />
-          <source src="./Logo_intro_animation_202608222305.mp4" type="video/mp4" />
-          <source src="/Logo_intro_animation_202608222305.mp4" type="video/mp4" />
-          <source src="intro.mp4" type="video/mp4" />
-          <source src="/intro.mp4" type="video/mp4" />
-        </video>
-
-        {/* Soft edge blend overlay for left/right sides */}
-        <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#eef2f5] to-transparent pointer-events-none hidden md:block" />
-        <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#eef2f5] to-transparent pointer-events-none hidden md:block" />
-      </div>
+      {/* Fullscreen Video Player */}
+      <video
+        ref={videoRef}
+        autoPlay
+        muted={isMuted}
+        playsInline
+        onEnded={finishIntro}
+        className="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src="clean_Logo_intro_animation_202608222305.mp4" type="video/mp4" />
+        <source src="./clean_Logo_intro_animation_202608222305.mp4" type="video/mp4" />
+        <source src="/clean_Logo_intro_animation_202608222305.mp4" type="video/mp4" />
+        <source src="intro.mp4" type="video/mp4" />
+        <source src="/intro.mp4" type="video/mp4" />
+      </video>
 
       {/* Floating Top-Right Controls */}
       <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
@@ -114,7 +102,7 @@ export default function IntroAnimation({ onComplete }) {
         {/* Skip Intro Button */}
         <button
           onClick={finishIntro}
-          className="group flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-wide text-slate-700 hover:text-white bg-white/85 hover:bg-[#0F4A44] backdrop-blur-md border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer"
+          className="group flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-wide text-slate-700 hover:text-white bg-white/80 hover:bg-[#0F4A44] backdrop-blur-md border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer"
         >
           <span>Skip Intro</span>
           <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
@@ -131,7 +119,7 @@ export default function IntroAnimation({ onComplete }) {
       </div>
 
       {/* Ultra-sleek Full-Width Bottom Progress Line */}
-      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-200/60 z-30">
+      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-100/60 z-30">
         <div
           className="h-full bg-gradient-to-r from-teal-600 via-emerald-500 to-[#0F4A44] transition-all duration-150 ease-out shadow-sm"
           style={{ width: `${Math.max(2, progress)}%` }}
