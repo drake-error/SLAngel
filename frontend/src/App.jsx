@@ -233,18 +233,33 @@ export function App() {
     };
   }, [dashboardData]);
 
-  // ─── Filtered Applications ────────────────────────────────────────────
+  // ─── Date Formatter ───────────────────────────────────────────────────
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  // ─── Filtered Applications (Sorted Date-Wise: Recent First) ─────────────
   const filteredApplications = useMemo(() => {
-    return applications.filter(app => {
-      const matchesSearch = 
-        app.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        app.applicantName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        app.service?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        app.stage?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRisk = riskFilter === 'All' || app.riskLevel === riskFilter;
-      const matchesDept = departmentFilter === 'All' || app.department === departmentFilter;
-      return matchesSearch && matchesRisk && matchesDept;
-    });
+    return applications
+      .filter(app => {
+        const matchesSearch = 
+          app.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          app.applicantName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          app.service?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          app.stage?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          app.submission_date?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesRisk = riskFilter === 'All' || app.riskLevel === riskFilter;
+        const matchesDept = departmentFilter === 'All' || app.department === departmentFilter;
+        return matchesSearch && matchesRisk && matchesDept;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.submission_date || a.created_at || 0).getTime();
+        const dateB = new Date(b.submission_date || b.created_at || 0).getTime();
+        return dateB - dateA; // Recent date first (newest -> oldest)
+      });
   }, [applications, searchQuery, riskFilter, departmentFilter]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────
@@ -305,6 +320,95 @@ export function App() {
     setApplications([]);
   };
 
+  // ─── Export & Template Downloads ─────────────────────────────────────────
+  const handleExportApplicationsCSV = () => {
+    if (!applications || !applications.length) {
+      showToast("⚠️ No applications to export.");
+      return;
+    }
+    const headers = ["Submitted Date", "App ID", "Applicant", "Service", "Department", "Days Held", "Days Remaining", "Risk Level", "Status"];
+    const rows = applications.map(a => [
+      formatDate(a.submission_date || a.created_at),
+      a.id,
+      `"${a.applicantName || ''}"`,
+      `"${a.service || ''}"`,
+      `"${a.department || ''}"`,
+      a.daysHeld || 0,
+      a.daysRemaining || 0,
+      a.riskLevel || '',
+      a.status || ''
+    ]);
+    const csvText = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `slangel_applications_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("📥 Applications exported to CSV successfully!");
+  };
+
+  const handleDownloadSampleCSV = () => {
+    const csvContent = "applicant_name,service_type,department,district,sla_days,submission_date,purpose,applicant_contact\n" +
+      "Rameshwar Patil,Income Certificate,Revenue & Land Records,North District,15,2026-08-20,Scholarship Application,+91 98450 12891\n" +
+      "Kavita Sundaram,Land Mutation,Revenue & Land Records,North District,30,2026-08-18,Property Sale Mutation,+91 97112 88402\n" +
+      "Suresh Kumar Gupta,Caste Certificate,Social Justice & Welfare,Central District,14,2026-08-22,Higher Education Admission,+91 99014 55193\n";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'sample_applications.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("📄 Downloaded sample CSV template!");
+  };
+
+  // ─── Direct File Upload (CSV, PDF, Excel, JSON) ───────────────────────────
+  const handleDirectFileUpload = async (file) => {
+    if (!file) return;
+    setUploadLoading(true);
+    showToast(`⏳ Uploading & processing ${file.name}...`);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const ext = file.name.split('.').pop().toLowerCase();
+      let endpoint = '/import/csv';
+      if (ext === 'json') endpoint = '/import/json';
+      else if (ext === 'xlsx' || ext === 'xls') endpoint = '/import/excel';
+      else if (ext === 'pdf') endpoint = '/import/pdf';
+
+      const token = localStorage.getItem('slangel_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+        throw new Error(err.detail || 'Upload failed');
+      }
+      const result = await res.json();
+      if (result.imported > 0) {
+        showToast(`✅ Successfully imported ${result.imported} application(s) from ${file.name}!`);
+        fetchData();
+      } else if (result.error) {
+        showToast(`❌ Import error: ${result.error}`);
+      } else {
+        showToast(`⚠️ Upload completed. Total: ${result.total_rows}, Imported: ${result.imported}`);
+      }
+    } catch (err) {
+      showToast(`❌ File upload error: ${err.message}`);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
   // ─── File Upload Handler ────────────────────────────────────────────────
   const handleFileUpload = async () => {
     if (!uploadFile) return;
@@ -317,6 +421,7 @@ export function App() {
       let endpoint = '/import/csv';
       if (ext === 'json') endpoint = '/import/json';
       else if (ext === 'xlsx' || ext === 'xls') endpoint = '/import/excel';
+      else if (ext === 'pdf') endpoint = '/import/pdf';
 
       const token = localStorage.getItem('slangel_token');
       const headers = {};
@@ -627,7 +732,7 @@ export function App() {
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-500 font-semibold bg-slate-50/50 dark:bg-slate-800/30">
-                          <th className="py-3.5 px-6">App ID</th>
+                          <th className="py-3.5 px-6">Submitted Date</th>
                           <th className="py-3.5 px-4">Service</th>
                           <th className="py-3.5 px-4">Stage</th>
                           <th className="py-3.5 px-4 text-center">Days Held</th>
@@ -642,7 +747,9 @@ export function App() {
                           .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
                           .slice(0, 6).map((app) => (
                           <tr key={app.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
-                            <td className="py-4 px-6 font-semibold text-slate-900 dark:text-white">{app.id}</td>
+                            <td className="py-4 px-6 font-semibold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
+                              {formatDate(app.submission_date || app.created_at)}
+                            </td>
                             <td className="py-4 px-4 font-medium text-slate-800 dark:text-slate-200">{app.service}</td>
                             <td className="py-4 px-4 text-slate-600 dark:text-slate-400">{app.stage}</td>
                             <td className="py-4 px-4 text-center font-semibold text-slate-900 dark:text-white">{app.daysHeld}</td>
@@ -754,28 +861,73 @@ export function App() {
 
           {activeTab === 'applications' && (
             <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Citizen Applications Registry</h3>
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Citizen Applications Registry</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Live repository of state service requests ordered date-wise (recent submission date first).</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
                   <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs border-0 focus:outline-none dark:text-white">
-                    <option value="All">All Risk</option>
+                    className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-medium">
+                    <option value="All">All Risk Levels</option>
                     <option value="Critical">Critical</option>
                     <option value="High">High</option>
                     <option value="Medium">Medium</option>
                     <option value="Low">Low</option>
                   </select>
+
+                  {/* Drag & Drop Upload Zone Beside Intake */}
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setUploadDragActive(true); }}
+                    onDragLeave={() => setUploadDragActive(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setUploadDragActive(false);
+                      const file = e.dataTransfer.files[0];
+                      if (file) handleDirectFileUpload(file);
+                    }}
+                    className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
+                      uploadDragActive
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700'
+                        : 'border-slate-300 dark:border-slate-700 hover:border-emerald-600 bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="text-xs font-semibold">Drag & Drop Upload (CSV/PDF/JSON/Excel)</span>
+                    <input
+                      type="file"
+                      accept=".csv,.json,.xlsx,.xls,.pdf"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        if (e.target.files[0]) handleDirectFileUpload(e.target.files[0]);
+                      }}
+                    />
+                  </div>
+
                   <button onClick={() => setIsNewAppModalOpen(true)}
-                    className="px-3.5 py-2 bg-[#0F4A44] text-white rounded-lg text-xs font-semibold">
-                    + New Application
+                    className="px-4 py-2 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 shrink-0">
+                    <Plus className="w-4 h-4" />
+                    + New Application Intake
                   </button>
+
+                  <div className="flex items-center gap-1">
+                    <button onClick={handleExportApplicationsCSV}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                      <Download className="w-3.5 h-3.5" />
+                      Export CSV
+                    </button>
+                    <button onClick={handleDownloadSampleCSV} title="Download Sample CSV Template"
+                      className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl text-xs transition">
+                      <FileText className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold">
-                      <th className="py-3 px-4">App ID</th>
+                      <th className="py-3 px-4">Submitted Date</th>
                       <th className="py-3 px-4">Applicant</th>
                       <th className="py-3 px-4">Service</th>
                       <th className="py-3 px-4">Stage</th>
@@ -789,7 +941,9 @@ export function App() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {filteredApplications.map(app => (
                       <tr key={app.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td className="py-3.5 px-4 font-bold">{app.id}</td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
+                          {formatDate(app.submission_date || app.created_at)}
+                        </td>
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
                         <td className="py-3.5 px-4 text-slate-500">{app.stage}</td>
@@ -962,7 +1116,7 @@ export function App() {
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold">
                       <th className="py-3 px-3 text-center">#</th>
-                      <th className="py-3 px-4">App ID</th>
+                      <th className="py-3 px-4">Submitted Date</th>
                       <th className="py-3 px-4">Applicant</th>
                       <th className="py-3 px-4">Service</th>
                       <th className="py-3 px-3 text-center">Days Rem.</th>
@@ -993,7 +1147,9 @@ export function App() {
                             {idx + 1}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 font-bold">{app.id}</td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
+                          {formatDate(app.submission_date || app.created_at)}
+                        </td>
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
                         <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : app.daysRemaining <= 3 ? 'text-amber-600' : ''}`}>
@@ -1255,7 +1411,7 @@ export function App() {
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>Review {selectedAppForReview.id}</span>
+                  <span>Application Submitted: {formatDate(selectedAppForReview.submission_date || selectedAppForReview.created_at)}</span>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                     selectedAppForReview.riskLevel === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' :
                     selectedAppForReview.riskLevel === 'High' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400' :
@@ -1266,7 +1422,7 @@ export function App() {
                   </span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {selectedAppForReview.service} • {selectedAppForReview.department}
+                  {selectedAppForReview.service} • {selectedAppForReview.department} • Ref ID: {selectedAppForReview.id}
                 </p>
               </div>
               <button onClick={() => setSelectedAppForReview(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg">

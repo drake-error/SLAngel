@@ -251,3 +251,107 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
         "failed": failed,
         "errors": errors[:20],
     }
+
+
+@router.post("/pdf")
+async def import_pdf(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Import applications from a PDF file."""
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF file (.pdf)")
+
+    content = await file.read()
+    text = ""
+
+    # Try pdfplumber or pypdf to extract text
+    try:
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+    except Exception:
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(content))
+            for page in reader.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Could not parse PDF file: {str(e)}")
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="PDF contains no extractable text")
+
+    # Try to parse CSV or JSON or Key-Value records inside PDF text
+    records = []
+    
+    # Check if text contains JSON array or JSON objects
+    if "[" in text and "]" in text:
+        try:
+            start_idx = text.find("[")
+            end_idx = text.rfind("]") + 1
+            json_str = text[start_idx:end_idx]
+            records = json.loads(json_str)
+        except Exception:
+            pass
+
+    # If not JSON, try line-by-line CSV or Key-Value parsing
+    if not records:
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        
+        # Check if first line is CSV header
+        if any(h in lines[0].lower() for h in ["applicant", "service", "department"]):
+            header = [h.strip().lower().replace(" ", "_") for h in lines[0].split(",")]
+            for line in lines[1:]:
+                parts = [p.strip() for p in line.split(",")]
+                if len(parts) >= len(REQUIRED_CSV_COLUMNS):
+                    rec = {header[i]: parts[i] for i in range(min(len(header), len(parts)))}
+                    records.append(rec)
+        else:
+            # Parse key-value block format (e.g. Applicant Name: ..., Service Type: ...)
+            current_rec = {}
+            for line in lines:
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    k_clean = k.strip().lower().replace(" ", "_")
+                    v_clean = v.strip()
+                    current_rec[k_clean] = v_clean
+                    if "applicant_name" in current_rec and "service_type" in current_rec and "department" in current_rec:
+                        records.append(current_rec)
+                        current_rec = {}
+            if current_rec and "applicant_name" in current_rec:
+                records.append(current_rec)
+
+    if not records:
+        # Fallback single record from PDF text
+        records = [{
+            "applicant_name": file.filename.replace(".pdf", "").replace("_", " ").title(),
+            "service_type": "Document Verification",
+            "department": "General Administration",
+            "purpose": text[:200]
+        }]
+
+    total = len(records)
+    imported = 0
+    failed = 0
+    errors = []
+
+    for i, record in enumerate(records, start=1):
+        app, error = _import_single_record(record, db)
+        if error:
+            failed += 1
+            errors.append(f"PDF Record {i}: {error}")
+        else:
+            imported += 1
+
+    db.commit()
+
+    return {
+        "total_rows": total,
+        "imported": imported,
+        "failed": failed,
+        "errors": errors[:20],
+    }
+

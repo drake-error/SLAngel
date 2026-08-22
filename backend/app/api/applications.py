@@ -239,7 +239,7 @@ def list_applications(
     risk: Optional[str] = None,
     priority: Optional[str] = None,
     sla_status: Optional[str] = None,
-    sort_by: Optional[str] = Query("created_at", description="Sort field"),
+    sort_by: Optional[str] = Query("submission_date", description="Sort field"),
     sort_order: Optional[str] = Query("desc", description="asc or desc"),
     db: Session = Depends(get_db),
 ):
@@ -303,7 +303,7 @@ def list_applications(
     total = query.count()
 
     # Sorting
-    sort_column = getattr(Application, sort_by, Application.created_at)
+    sort_column = getattr(Application, sort_by, Application.submission_date)
     if sort_order == "asc":
         query = query.order_by(asc(sort_column))
     else:
