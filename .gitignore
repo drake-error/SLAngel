@@ -22,5 +22,10 @@ Thumbs.db
 dist/
 build/
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Vercel
 .vercel

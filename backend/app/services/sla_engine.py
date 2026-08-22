@@ -19,11 +19,11 @@ def calculate_sla_metrics(application: Application) -> dict:
     days_elapsed = max(0, (now - submission).days)
 
     # Calculate expected completion date
-    sla_days = application.sla_days or 15
+    sla_days = application.sla_days if application.sla_days is not None else 15
     expected_completion = submission + timedelta(days=sla_days)
 
     # Calculate days remaining
-    days_remaining = max(0, (expected_completion - now).days)
+    days_remaining = max(0, sla_days - days_elapsed) if sla_days > 0 else 0
 
     # If application is completed/approved, freeze remaining at completion
     if application.status in (
