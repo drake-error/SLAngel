@@ -1,0 +1,9 @@
+applicant_name,service_type,department,district,sla_days,stage,status,submission_date,applicant_contact,purpose
+Rameshwar Prasad,Income Certificate,Revenue & Land Records,Bengaluru Urban,15,Document Verification,SUBMITTED,2026-08-10,+91 98450 12345,Higher Education Scholarship
+Sunita Devi,Land Mutation,Revenue & Land Records,Mysuru,30,Under Review,UNDER_REVIEW,2026-07-25,+91 98450 23456,Inheritance Property Registration
+Mohammed Asif,Building Permit,Urban Development,Bengaluru Rural,21,Document Verification,DOCUMENTS_REQUIRED,2026-08-01,+91 98450 34567,Residential Construction
+Kavita Patil,Domicile Certificate,General Administration,Belagavi,10,Verification Pending,VERIFICATION_PENDING,2026-08-15,+91 98450 45678,State Govt Job Application
+Vikramaditya Rao,Trade License,Commercial Taxes,Mangaluru,15,Approved,APPROVED,2026-08-05,+91 98450 56789,Retail Store Setup
+Anand Kumar,Caste Certificate,Social Welfare,Tumakuru,15,Document Verification,SUBMITTED,2026-08-18,+91 98450 67890,Competitive Exam Reservation
+Deepa Nair,Marriage Certificate,Registrar of Births & Deaths,Shivamogga,7,Under Review,UNDER_REVIEW,2026-08-16,+91 98450 78901,Passport Application
+Pooja Hegde,Property Registration,Revenue & Land Records,Udupi,30,Escalated,ESCALATED,2026-07-15,+91 98450 89012,Commercial Land Sale

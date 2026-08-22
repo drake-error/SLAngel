@@ -1,0 +1,50 @@
+[
+  {
+    "applicant_name": "Dr. Rajesh Sharma",
+    "service_type": "Trade License",
+    "department": "Commercial Taxes",
+    "district": "Bengaluru Urban",
+    "sla_days": 15,
+    "stage": "Document Verification",
+    "status": "SUBMITTED",
+    "submission_date": "2026-08-12",
+    "applicant_contact": "+91 98451 11223",
+    "purpose": "Clinic License Renewal"
+  },
+  {
+    "applicant_name": "Meera Balakrishnan",
+    "service_type": "Land Mutation",
+    "department": "Revenue & Land Records",
+    "district": "Dharwad",
+    "sla_days": 30,
+    "stage": "Under Review",
+    "status": "UNDER_REVIEW",
+    "submission_date": "2026-07-20",
+    "applicant_contact": "+91 98451 22334",
+    "purpose": "Agricultural Land Partition"
+  },
+  {
+    "applicant_name": "Girish Gowda",
+    "service_type": "Income Certificate",
+    "department": "Revenue & Land Records",
+    "district": "Mandya",
+    "sla_days": 15,
+    "stage": "Documents Required",
+    "status": "DOCUMENTS_REQUIRED",
+    "submission_date": "2026-08-02",
+    "applicant_contact": "+91 98451 33445",
+    "purpose": "Housing Subsidy Scheme"
+  },
+  {
+    "applicant_name": "Siddharth Jain",
+    "service_type": "Building Permit",
+    "department": "Urban Development",
+    "district": "Bengaluru Urban",
+    "sla_days": 21,
+    "stage": "Verification Pending",
+    "status": "VERIFICATION_PENDING",
+    "submission_date": "2026-08-08",
+    "applicant_contact": "+91 98451 44556",
+    "purpose": "Commercial Complex Plan"
+  }
+]
