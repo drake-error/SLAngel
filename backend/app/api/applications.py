@@ -162,6 +162,7 @@ def create_application(
         app_number = _generate_app_number()
 
     now = datetime.utcnow()
+    sub_date = app_data.submission_date if app_data.submission_date else now
 
     application = Application(
         application_number=app_number,
@@ -171,7 +172,7 @@ def create_application(
         department=app_data.department,
         district=app_data.district,
         stage="Document Verification",
-        submission_date=now,
+        submission_date=sub_date,
         sla_days=app_data.sla_days,
         status=ApplicationStatus.SUBMITTED.value,
         verification_status=VerificationStatus.PENDING.value,

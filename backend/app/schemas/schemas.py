@@ -105,6 +105,7 @@ class ApplicationCreate(BaseModel):
     department: str = Field(..., min_length=2)
     district: Optional[str] = None
     sla_days: int = Field(default=15, ge=1, le=365)
+    submission_date: Optional[datetime] = None
     purpose: Optional[str] = None
     aadhaar_status: Optional[str] = None
     annual_income: Optional[str] = None

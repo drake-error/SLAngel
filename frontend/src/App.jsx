@@ -234,10 +234,27 @@ export function App() {
   }, [dashboardData]);
 
   // ─── Date Formatter ───────────────────────────────────────────────────
-  const formatDate = (dateStr) => {
+  const formatDate = (val) => {
+    let dateStr = val;
+    if (val && typeof val === 'object') {
+      dateStr = val.submission_date || val.submissionDate || val.created_at || val.date;
+      if (!dateStr && val.daysHeld !== undefined && val.daysHeld !== null) {
+        const d = new Date();
+        d.setDate(d.getDate() - Number(val.daysHeld));
+        dateStr = d.toISOString();
+      }
+    }
     if (!dateStr) return 'N/A';
+
+    if (typeof dateStr === 'string' && dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
+    if (isNaN(d.getTime())) return String(dateStr);
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
@@ -748,7 +765,7 @@ export function App() {
                           .slice(0, 6).map((app) => (
                           <tr key={app.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
                             <td className="py-4 px-6 font-semibold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
-                              {formatDate(app.submission_date || app.created_at)}
+                              {formatDate(app)}
                             </td>
                             <td className="py-4 px-4 font-medium text-slate-800 dark:text-slate-200">{app.service}</td>
                             <td className="py-4 px-4 text-slate-600 dark:text-slate-400">{app.stage}</td>
@@ -942,7 +959,7 @@ export function App() {
                     {filteredApplications.map(app => (
                       <tr key={app.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                         <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
-                          {formatDate(app.submission_date || app.created_at)}
+                          {formatDate(app)}
                         </td>
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
@@ -1148,7 +1165,7 @@ export function App() {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
-                          {formatDate(app.submission_date || app.created_at)}
+                          {formatDate(app)}
                         </td>
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
