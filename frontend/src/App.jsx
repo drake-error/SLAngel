@@ -435,38 +435,32 @@ export function App() {
 
     if (liveSmsSettings.provider === 'Fast2SMS') {
       try {
-        const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+        // Use server-side proxy to avoid CORS (works on Vercel & backend)
+        const proxyResponse = await fetch('/api/sms', {
           method: 'POST',
-          headers: {
-            'authorization': liveSmsSettings.apiKey,
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            route: 'q',
             message: smsText,
-            flash: 0,
-            numbers: cleanedPhone
+            numbers: cleanedPhone,
+            apiKey: liveSmsSettings.apiKey
           })
         });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.return) {
-            showToast(`📲 SMS delivered to +91${cleanedPhone}!`);
-          } else {
-            showToast(`⚠️ SMS sent but gateway reported: ${data.message || 'Unknown issue'}`);
-          }
+        const proxyData = await proxyResponse.json();
+        if (proxyResponse.ok && proxyData.success) {
+          showToast(`📲 SMS delivered to +91${cleanedPhone}!`);
         } else {
-          showToast(`⚠️ SMS gateway returned status ${response.status}. Check API key.`);
+          showToast(`⚠️ SMS: ${proxyData.message || 'Delivery issue. Check gateway.'}`);
         }
       } catch (err) {
-        // CORS fallback — try GET with no-cors (opaque, best effort)
+        // Proxy unavailable — try direct API call (best-effort, may be blocked by CORS)
+        console.warn('SMS proxy unavailable, trying direct...', err);
         try {
           const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${liveSmsSettings.apiKey}&route=q&message=${encodeURIComponent(smsText)}&flash=0&numbers=${cleanedPhone}`;
           await fetch(url, { mode: 'no-cors' });
           showToast(`📲 SMS dispatched to +91${cleanedPhone} (best-effort)`);
         } catch (e2) {
           console.error('Fast2SMS dispatch failed:', e2);
-          showToast(`❌ SMS failed: Network/CORS error. Message logged locally.`);
+          showToast(`❌ SMS failed. Message saved to dispatch log.`);
         }
       }
     } else if (liveSmsSettings.provider === 'Twilio') {

@@ -1,3 +1,7 @@
 {
-  "name": "slangel"
+  "name": "slangel",
+  "rewrites": [
+    { "source": "/api/sms", "destination": "/api/sms" },
+    { "source": "/(.*)", "destination": "/" }
+  ]
 }
