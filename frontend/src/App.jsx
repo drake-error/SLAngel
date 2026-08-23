@@ -1685,7 +1685,6 @@ export function App() {
                           <th className="py-3.5 px-4">Stage</th>
                           <th className="py-3.5 px-4 text-center">Days Held</th>
                           <th className="py-3.5 px-4 text-center">Days Rem.</th>
-                          <th className="py-3.5 px-4">Risk Level</th>
                           <th className="py-3.5 px-6 text-right">Action</th>
                         </tr>
                       </thead>
@@ -1705,25 +1704,7 @@ export function App() {
                             <td className={`py-4 px-4 text-center font-bold ${app.daysRemaining <= 1 ? 'text-[#DC2626]' : 'text-slate-900 dark:text-white'}`}>
                               {Math.abs(app.daysRemaining)}
                             </td>
-                            <td className="py-4 px-4">
-                              {app.riskLevel === 'Critical' ? (
-                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FEE2E2] text-[#DC2626] dark:bg-red-950/60 dark:text-red-400">
-                                  Critical
-                                </span>
-                              ) : app.riskLevel === 'High' ? (
-                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#9A3412] dark:bg-amber-950/60 dark:text-amber-400">
-                                  High
-                                </span>
-                              ) : app.riskLevel === 'Medium' ? (
-                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#DBEAFE] text-[#2563EB] dark:bg-blue-950/60 dark:text-blue-400">
-                                  Medium
-                                </span>
-                              ) : (
-                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#D1FAE5] text-[#065F46] dark:bg-emerald-950/60 dark:text-emerald-400">
-                                  Low
-                                </span>
-                              )}
-                            </td>
+
                             <td className="py-4 px-6 text-right flex justify-end gap-1.5 items-center">
                               {app.daysRemaining <= 0 && (
                                 <button
@@ -1824,15 +1805,6 @@ export function App() {
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Live repository of state service requests ordered date-wise (recent submission date first).</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-medium">
-                    <option value="All">All Risk Levels</option>
-                    <option value="Critical">Critical</option>
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                  </select>
-
                   <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}
                     className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-medium">
                     <option value="All">All Departments</option>
@@ -1930,7 +1902,6 @@ export function App() {
                       <th className="py-3 px-4">Stage</th>
                       <th className="py-3 px-3 text-center">Days Held</th>
                       <th className="py-3 px-3 text-center">Days Rem.</th>
-                      <th className="py-3 px-3">Risk</th>
                       <th className="py-3 px-3">Priority</th>
                       <th className="py-3 px-4 text-right">Action</th>
                     </tr>
@@ -1960,14 +1931,7 @@ export function App() {
                         <td className="py-3.5 px-4 text-slate-500 font-semibold">{app.stage}</td>
                         <td className="py-3.5 px-3 text-center font-bold">{app.daysHeld}</td>
                         <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : ''}`}>{Math.abs(app.daysRemaining)}</td>
-                        <td className="py-3.5 px-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            app.riskLevel === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' :
-                            app.riskLevel === 'High' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400' :
-                            app.riskLevel === 'Medium' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400' :
-                            'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                          }`}>{app.riskLevel}</span>
-                        </td>
+
                         <td className="py-3.5 px-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             app.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
@@ -2137,7 +2101,6 @@ export function App() {
                       <th className="py-3 px-4">Applicant</th>
                       <th className="py-3 px-4">Service</th>
                       <th className="py-3 px-3 text-center">Days Rem.</th>
-                      <th className="py-3 px-3">Risk</th>
                       <th className="py-3 px-3">Priority</th>
                       <th className="py-3 px-4">Recommended Action</th>
                       <th className="py-3 px-4 text-right">Action</th>
@@ -2167,14 +2130,7 @@ export function App() {
                         <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : app.daysRemaining <= 3 ? 'text-amber-600' : ''}`}>
                           {Math.abs(app.daysRemaining)}
                         </td>
-                        <td className="py-3.5 px-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            app.riskLevel === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' :
-                            app.riskLevel === 'High' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400' :
-                            app.riskLevel === 'Medium' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400' :
-                            'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                          }`}>{app.riskLevel} ({app.risk_score?.toFixed(0)})</span>
-                        </td>
+
                         <td className="py-3.5 px-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             app.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
@@ -2644,14 +2600,7 @@ export function App() {
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span>Application Submitted: {formatDate(selectedAppForReview.submission_date || selectedAppForReview.created_at)}</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                    selectedAppForReview.riskLevel === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' :
-                    selectedAppForReview.riskLevel === 'High' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400' :
-                    selectedAppForReview.riskLevel === 'Medium' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400' :
-                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                  }`}>
-                    {selectedAppForReview.riskLevel} Risk ({selectedAppForReview.risk_score?.toFixed(0)}/100)
-                  </span>
+
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {selectedAppForReview.service} • {selectedAppForReview.department} • Ref ID: {selectedAppForReview.id}
