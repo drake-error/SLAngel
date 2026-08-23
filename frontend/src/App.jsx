@@ -27,7 +27,8 @@ import {
   UserCheck,
   Film,
   LogIn,
-  LogOut
+  LogOut,
+  Settings
 } from 'lucide-react';
 import IntroAnimation from './components/IntroAnimation';
 import { DEMO_USER, DEMO_OFFICERS, DEMO_APPLICATIONS, DEMO_DASHBOARD, DEMO_ALERTS } from './data/demoData';
