@@ -4,11 +4,24 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
+import shutil
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./slangel.db")
+is_vercel = os.getenv("VERCEL") == "1"
+
+if is_vercel:
+    db_path = "/tmp/slangel.db"
+    if not os.path.exists(db_path):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        source_db = os.path.join(base_dir, "slangel.db")
+        if os.path.exists(source_db):
+            shutil.copy2(source_db, db_path)
+else:
+    db_path = "./slangel.db"
+
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{db_path}")
 
 # SQLite needs connect_args for thread safety
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
