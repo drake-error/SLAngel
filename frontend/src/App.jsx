@@ -290,6 +290,29 @@ export function App() {
   const [isRebalanceModalOpen, setIsRebalanceModalOpen] = useState(false);
   const [isExportReportOpen, setIsExportReportOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isSmsSettingsOpen, setIsSmsSettingsOpen] = useState(false);
+  const [liveSmsSettings, setLiveSmsSettings] = useState(() => {
+    try {
+      const stored = localStorage.getItem('slangel_sms_gateway_settings');
+      return stored ? JSON.parse(stored) : { 
+        enabled: true, 
+        provider: 'Fast2SMS', 
+        apiKey: 'sBf9xTKSVFE3Rjqzh4yOvL2t61kerZX8cpC0AoH5aUbQWMGwd7eyOf9Q2gWAtwIocmCKLpViD805MnrF', 
+        accountSid: '', 
+        senderPhone: '', 
+        phone: '+91 7019178340' 
+      };
+    } catch {
+      return { 
+        enabled: true, 
+        provider: 'Fast2SMS', 
+        apiKey: 'sBf9xTKSVFE3Rjqzh4yOvL2t61kerZX8cpC0AoH5aUbQWMGwd7eyOf9Q2gWAtwIocmCKLpViD805MnrF', 
+        accountSid: '', 
+        senderPhone: '', 
+        phone: '+91 7019178340' 
+      };
+    }
+  });
   const [showIntro, setShowIntro] = useState(true);
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -339,6 +362,60 @@ export function App() {
       }
       return next;
     });
+  };
+
+  const sendLiveSMS = async (smsText) => {
+    if (!liveSmsSettings.enabled || !liveSmsSettings.apiKey) return;
+    const rawPhone = liveSmsSettings.phone || '7019178340';
+    const cleanedPhone = rawPhone.replace(/\D/g, '').slice(-10); // Extract last 10 digits
+    if (cleanedPhone.length < 10) {
+      console.warn('Invalid phone number for dispatch');
+      return;
+    }
+
+    if (liveSmsSettings.provider === 'Fast2SMS') {
+      try {
+        const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${liveSmsSettings.apiKey}&route=q&message=${encodeURIComponent(smsText)}&flash=0&numbers=${cleanedPhone}`;
+        await fetch(url, { mode: 'no-cors' });
+        showToast(`📲 Live SMS Dispatched to ${cleanedPhone}!`);
+      } catch (err) {
+        console.error('Fast2SMS dispatch failed:', err);
+        showToast(`❌ Live SMS Dispatch failed: CORS or connection error.`);
+      }
+    } else if (liveSmsSettings.provider === 'Twilio') {
+      try {
+        const { accountSid, apiKey: token, senderPhone } = liveSmsSettings;
+        if (!accountSid || !token || !senderPhone) {
+          showToast(`❌ Twilio configuration incomplete.`);
+          return;
+        }
+        const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+        const headers = new Headers();
+        headers.set('Authorization', 'Basic ' + btoa(accountSid + ':' + token));
+        headers.set('Content-Type', 'application/x-www-form-urlencoded');
+
+        const body = new URLSearchParams();
+        body.set('To', rawPhone.startsWith('+') ? rawPhone : `+91${cleanedPhone}`);
+        body.set('From', senderPhone);
+        body.set('Body', smsText);
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body
+        });
+
+        if (response.ok) {
+          showToast(`📲 Live SMS Dispatched to ${cleanedPhone}!`);
+        } else {
+          const errData = await response.json();
+          showToast(`❌ Twilio Error: ${errData.message || 'Dispatch failed'}`);
+        }
+      } catch (err) {
+        console.error('Twilio dispatch failed:', err);
+        showToast(`❌ Twilio dispatch failed: check console.`);
+      }
+    }
   };
 
   // ─── Auth Check ─────────────────────────────────────────────────────────
@@ -582,7 +659,9 @@ export function App() {
           ]
         };
 
-        return { ...updatedApp, ...predictRisk(updatedApp) };
+        const calculated = { ...updatedApp, ...predictRisk(updatedApp) };
+        sendLiveSMS(smsText);
+        return calculated;
       }));
 
       setSelectedAppForReview(null);
@@ -625,7 +704,9 @@ export function App() {
           ]
         };
 
-        return { ...updatedApp, ...predictRisk(updatedApp) };
+        const calculated = { ...updatedApp, ...predictRisk(updatedApp) };
+        sendLiveSMS(smsText);
+        return calculated;
       }));
 
       setSelectedAppForExpedite(null);
@@ -712,6 +793,7 @@ export function App() {
         if (selectedAppForReview && selectedAppForReview.id === appId) {
           setTimeout(() => setSelectedAppForReview(calculated), 0);
         }
+        sendLiveSMS(smsText);
         return calculated;
       }));
       showToast(`✅ Stage updated to ${newStage}!`);
@@ -758,6 +840,7 @@ export function App() {
         if (selectedAppForReview && selectedAppForReview.id === appId) {
           setTimeout(() => setSelectedAppForReview(calculated), 0);
         }
+        sendLiveSMS(smsText);
         return calculated;
       }));
       setResolutionApp(null);
@@ -790,6 +873,7 @@ export function App() {
       if (selectedAppForReview && selectedAppForReview.id === app.id) {
         setTimeout(() => setSelectedAppForReview(calculated), 0);
       }
+      sendLiveSMS(smsCustomText);
       return calculated;
     }));
     setSmsModalApp(null);
@@ -825,7 +909,9 @@ export function App() {
             { date: new Date().toISOString(), event: `Verification started & stage set to Scrutiny.` }
           ]
         };
-        return { ...updatedApp, ...predictRisk(updatedApp) };
+        const calculated = { ...updatedApp, ...predictRisk(updatedApp) };
+        sendLiveSMS(smsText);
+        return calculated;
       }));
       showToast(`✅ [Demo] Verification started for ${appId}`);
     }
@@ -860,7 +946,9 @@ export function App() {
             { date: new Date().toISOString(), event: `Verification completed & stage set to Verification.` }
           ]
         };
-        return { ...updatedApp, ...predictRisk(updatedApp) };
+        const calculated = { ...updatedApp, ...predictRisk(updatedApp) };
+        sendLiveSMS(smsText);
+        return calculated;
       }));
       showToast(`✅ [Demo] Verification completed for ${appId}`);
     }
@@ -899,6 +987,7 @@ export function App() {
             { date: new Date().toISOString(), event: `Verification rejected & application marked as Rejected.` }
           ]
         };
+        sendLiveSMS(smsText);
         return updatedApp;
       }));
       showToast(`❌ [Demo] Verification rejected for ${appId}`);
@@ -1410,6 +1499,13 @@ export function App() {
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ New Intake</span>
+          </button>
+          <button
+            onClick={() => setIsSmsSettingsOpen(true)}
+            className="w-full flex items-center justify-center gap-1.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold shadow-sm transition border border-slate-200 dark:border-slate-700"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>SMS & Alert Gateway</span>
           </button>
         </div>
       </aside>
@@ -2779,6 +2875,150 @@ export function App() {
                   Approve & Issue Certificate
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SMS Gateway Settings Modal */}
+      {isSmsSettingsOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-[#111827] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <MessageSquare className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                  SMS & Alert Gateway
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Route real-time citizen status updates to your mobile device.</p>
+              </div>
+              <button onClick={() => setIsSmsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-5 h-5" /></button>
+            </div>
+            
+            <div className="space-y-4 text-xs">
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl">
+                <div>
+                  <label className="font-bold text-slate-800 dark:text-slate-200">Enable Live SMS Alerts</label>
+                  <p className="text-[10px] text-slate-400">Triggers actual SMS delivery on stage updates & approvals.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={liveSmsSettings.enabled}
+                  onChange={e => setLiveSmsSettings({...liveSmsSettings, enabled: e.target.checked})}
+                  className="w-4 h-4 text-teal-600 border-slate-300 dark:border-slate-700 rounded focus:ring-teal-500 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Gateway Provider</label>
+                <select
+                  value={liveSmsSettings.provider}
+                  onChange={e => setLiveSmsSettings({...liveSmsSettings, provider: e.target.value})}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                >
+                  <option value="Fast2SMS">Fast2SMS (India Quick Route)</option>
+                  <option value="Twilio">Twilio SMS (Global Gateway)</option>
+                </select>
+              </div>
+
+              {liveSmsSettings.provider === 'Fast2SMS' ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Fast2SMS API Key</label>
+                    <input
+                      type="password"
+                      value={liveSmsSettings.apiKey}
+                      onChange={e => setLiveSmsSettings({...liveSmsSettings, apiKey: e.target.value})}
+                      placeholder="Paste your Fast2SMS Authorization Key"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Route Policy</label>
+                    <input
+                      type="text"
+                      disabled
+                      value="Quick SMS Route (Bypasses DLT approvals)"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-250 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/60 text-slate-450 font-semibold"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Twilio Account SID</label>
+                    <input
+                      type="text"
+                      value={liveSmsSettings.accountSid}
+                      onChange={e => setLiveSmsSettings({...liveSmsSettings, accountSid: e.target.value})}
+                      placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Auth Token</label>
+                    <input
+                      type="password"
+                      value={liveSmsSettings.apiKey}
+                      onChange={e => setLiveSmsSettings({...liveSmsSettings, apiKey: e.target.value})}
+                      placeholder="Paste your Twilio Auth Token"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Sender ID / Twilio Phone Number</label>
+                    <input
+                      type="text"
+                      value={liveSmsSettings.senderPhone}
+                      onChange={e => setLiveSmsSettings({...liveSmsSettings, senderPhone: e.target.value})}
+                      placeholder="+1XXXXXXXXXX"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Recipient Mobile Number *</label>
+                <input
+                  type="text"
+                  required
+                  value={liveSmsSettings.phone}
+                  onChange={e => setLiveSmsSettings({...liveSmsSettings, phone: e.target.value})}
+                  placeholder="+91 XXXXXXXXXX"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  sendLiveSMS(`SLAngel Test Alert: Live SMS Gateway connected successfully to ${liveSmsSettings.phone || '+91 7019178340'}!`);
+                }}
+                className="mr-auto px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 rounded-lg font-bold transition shadow-sm border border-slate-200 dark:border-slate-700 text-xs"
+              >
+                Send Test SMS
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSmsSettingsOpen(false)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-slate-200 transition text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('slangel_sms_gateway_settings', JSON.stringify(liveSmsSettings));
+                  setIsSmsSettingsOpen(false);
+                  showToast(`💾 SMS alert gateway settings saved successfully!`);
+                }}
+                className="px-4 py-2 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded-lg font-bold transition shadow-sm text-xs"
+              >
+                Save Settings
+              </button>
             </div>
           </div>
         </div>
