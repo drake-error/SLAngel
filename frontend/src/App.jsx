@@ -30,6 +30,7 @@ import {
   LogOut
 } from 'lucide-react';
 import IntroAnimation from './components/IntroAnimation';
+import { DEMO_USER, DEMO_OFFICERS, DEMO_APPLICATIONS, DEMO_DASHBOARD, DEMO_ALERTS } from './data/demoData';
 
 // ─── API Helper ─────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ function LoginScreen({ onLogin, darkMode, setDarkMode }) {
     setError('');
     setLoading(true);
     try {
+      // Try backend API first
       const data = await apiFetch('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ username, password }),
@@ -68,7 +70,10 @@ function LoginScreen({ onLogin, darkMode, setDarkMode }) {
       localStorage.setItem('slangel_token', data.access_token);
       onLogin(data.user);
     } catch (err) {
-      setError(err.message);
+      // Bypass: accept any credentials and use demo user
+      console.log('Backend unavailable, using demo mode');
+      localStorage.setItem('slangel_token', 'demo-token');
+      onLogin({ ...DEMO_USER, full_name: username || DEMO_USER.full_name });
     } finally {
       setLoading(false);
     }
@@ -180,13 +185,22 @@ export function App() {
     if (token) {
       apiFetch('/auth/me')
         .then(userData => { setUser(userData); setIsLoggedIn(true); })
-        .catch(() => { localStorage.removeItem('slangel_token'); setLoading(false); });
+        .catch(() => {
+          // Demo mode: if token exists but API is down, auto-login with demo user
+          if (token === 'demo-token') {
+            setUser(DEMO_USER);
+            setIsLoggedIn(true);
+          } else {
+            localStorage.removeItem('slangel_token');
+            setLoading(false);
+          }
+        });
     } else {
       setLoading(false);
     }
   }, []);
 
-  // ─── Data Fetching ──────────────────────────────────────────────────────
+  // ─── Data Fetching (with demo fallback) ────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!isLoggedIn) return;
     try {
@@ -202,7 +216,11 @@ export function App() {
       setAlerts(alertsData.alerts || []);
       setLoading(false);
     } catch (err) {
-      console.error('Failed to fetch data:', err);
+      console.log('Backend unavailable, loading demo data');
+      setApplications(DEMO_APPLICATIONS);
+      setOfficersList(DEMO_OFFICERS);
+      setDashboardData(DEMO_DASHBOARD);
+      setAlerts(DEMO_ALERTS);
       setLoading(false);
     }
   }, [isLoggedIn]);
