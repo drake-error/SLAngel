@@ -1692,7 +1692,7 @@ export function App() {
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200 font-medium">
                         {applications
                           .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected')
-                          .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
+                          .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
                           .slice(0, 6).map((app) => (
                           <tr key={app.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
                             <td className="py-4 px-6 font-semibold text-slate-900 dark:text-white">
@@ -1724,7 +1724,15 @@ export function App() {
                                 </span>
                               )}
                             </td>
-                            <td className="py-4 px-6 text-right">
+                            <td className="py-4 px-6 text-right flex justify-end gap-1.5 items-center">
+                              {app.daysRemaining <= 0 && (
+                                <button
+                                  onClick={() => setResolutionApp(app)}
+                                  className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-sm animate-pulse"
+                                >
+                                  Close
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleOpenReviewModal(app)}
                                 className="px-4 py-1.5 rounded-md bg-[#0F4A44] hover:bg-[#0B3834] text-white text-xs font-semibold transition shadow-sm"
@@ -1968,7 +1976,13 @@ export function App() {
                             'bg-slate-100 text-slate-600'
                           }`}>{app.priority}</span>
                         </td>
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-3.5 px-4 text-right flex justify-end gap-1.5 items-center">
+                          {app.daysRemaining <= 0 && (
+                            <button onClick={() => setResolutionApp(app)}
+                              className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold shadow-sm transition animate-pulse">
+                              Close
+                            </button>
+                          )}
                           <button onClick={() => handleOpenReviewModal(app)}
                             className="px-3 py-1.5 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded text-xs font-semibold shadow-sm transition">
                             Review
@@ -2132,13 +2146,7 @@ export function App() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {applications
                       .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected')
-                      .sort((a, b) => {
-                        const riskOrder = { 'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
-                        const riskA = riskOrder[a.riskLevel] ?? 4;
-                        const riskB = riskOrder[b.riskLevel] ?? 4;
-                        if (riskA !== riskB) return riskA - riskB;
-                        return (a.daysRemaining || 999) - (b.daysRemaining || 999);
-                      })
+                      .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
                       .map((app, idx) => (
                       <tr key={app.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 ${idx < 3 ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
                         <td className="py-3.5 px-3 text-center">
@@ -2190,7 +2198,13 @@ export function App() {
                             <span className="text-[11px] text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-3.5 px-4 text-right flex justify-end gap-1.5 items-center">
+                          {app.daysRemaining <= 0 && (
+                            <button onClick={() => setResolutionApp(app)}
+                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold shadow-sm transition animate-pulse">
+                              Close
+                            </button>
+                          )}
                           <button onClick={() => handleOpenReviewModal(app)}
                             className="px-3 py-1 bg-[#0F4A44] text-white rounded text-xs font-semibold hover:bg-[#0B3834] transition">Review</button>
                         </td>
