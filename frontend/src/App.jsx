@@ -250,6 +250,16 @@ export function App() {
   const [dashboardData, setDashboardData] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [docSearchQuery, setDocSearchQuery] = useState('');
+  const [seenApps, setSeenApps] = useState(() => {
+    try {
+      const stored = localStorage.getItem('slangel_seen_apps');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [seenFilter, setSeenFilter] = useState('All');
   const [riskFilter, setRiskFilter] = useState('All');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [serviceFilter, setServiceFilter] = useState('All');
@@ -302,6 +312,33 @@ export function App() {
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleOpenReviewModal = (app) => {
+    setSelectedAppForReview(app);
+    setSeenApps(prev => {
+      if (prev.includes(app.id)) return prev;
+      const next = [...prev, app.id];
+      try {
+        localStorage.setItem('slangel_seen_apps', JSON.stringify(next));
+      } catch (err) {
+        console.error(err);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSeen = (appId) => {
+    setSeenApps(prev => {
+      const isAlreadySeen = prev.includes(appId);
+      const next = isAlreadySeen ? prev.filter(id => id !== appId) : [...prev, appId];
+      try {
+        localStorage.setItem('slangel_seen_apps', JSON.stringify(next));
+      } catch (err) {
+        console.error(err);
+      }
+      return next;
+    });
   };
 
   // ─── Auth Check ─────────────────────────────────────────────────────────
@@ -493,7 +530,13 @@ export function App() {
         const matchesRisk = riskFilter === 'All' || app.riskLevel === riskFilter;
         const matchesDept = departmentFilter === 'All' || app.department === departmentFilter;
         const matchesService = serviceFilter === 'All' || app.service === serviceFilter;
-        return matchesSearch && matchesRisk && matchesDept && matchesService;
+        const matchesDocSearch = !docSearchQuery ? true : (
+          app.documents?.some(doc => doc.name.toLowerCase().includes(docSearchQuery.toLowerCase()))
+        );
+        const matchesSeen = seenFilter === 'All' ? true : (
+          seenFilter === 'Seen' ? seenApps.includes(app.id) : !seenApps.includes(app.id)
+        );
+        return matchesSearch && matchesRisk && matchesDept && matchesService && matchesDocSearch && matchesSeen;
       })
       .sort((a, b) => {
         const dateA = new Date(a.submission_date || a.created_at || 0).getTime();
@@ -616,6 +659,250 @@ export function App() {
     setUser(null);
     setIsLoggedIn(false);
     setApplications([]);
+  };
+
+  const handleStageTransition = async (appId, newStage) => {
+    try {
+      await apiFetch(`/applications/${appId}/stage`, {
+        method: 'POST',
+        body: JSON.stringify({ stage: newStage })
+      });
+      fetchData();
+      showToast(`✅ Stage updated to ${newStage}`);
+    } catch (err) {
+      console.log('API Offline. Simulating local stage transition...');
+      setApplications(prev => prev.map(app => {
+        if (app.id !== appId) return app;
+
+        let smsText = `Dear ${app.applicantName}, your application ${app.id} for ${app.service} status updated. Stage: ${newStage}.`;
+        if (newStage === 'Submission') {
+          smsText = `Dear ${app.applicantName}, your request for ${app.service} (ID: ${app.id}) has been successfully received. Stage: Submission. - Govt Services`;
+        } else if (newStage === 'Scrutiny') {
+          smsText = `Dear ${app.applicantName}, document review is initiated for request ${app.id} under Scrutiny stage. Verification pending. - Govt Services`;
+        } else if (newStage === 'Verification') {
+          smsText = `Dear ${app.applicantName}, physical field verification is scheduled for request ${app.id}. Stage: Verification. - Govt Services`;
+        } else if (newStage === 'Approval') {
+          smsText = `Dear ${app.applicantName}, scrutiny & verification completed. Your request ${app.id} is recommended for Approval by Officer. - Govt Services`;
+        } else if (newStage === 'Completion') {
+          smsText = `Dear ${app.applicantName}, congratulations! Your certificate/service for request ${app.id} is complete & issued. Case closed. - Govt Services`;
+        }
+
+        const newSms = {
+          stage: newStage,
+          message: smsText,
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Delivered'
+        };
+
+        const updatedApp = {
+          ...app,
+          stage: newStage,
+          status: newStage === 'Completion' ? 'Approved' : 'UNDER_REVIEW',
+          daysRemaining: newStage === 'Completion' ? 0 : app.daysRemaining,
+          riskLevel: newStage === 'Completion' ? 'Low' : app.riskLevel,
+          risk_score: newStage === 'Completion' ? 0 : app.risk_score,
+          smsHistory: [...(app.smsHistory || []), newSms],
+          timeline: [
+            ...(app.timeline || []),
+            { date: new Date().toISOString(), event: `Stage updated to ${newStage} by Officer ${currentOfficer.name}` }
+          ]
+        };
+
+        const calculated = { ...updatedApp, ...predictRisk(updatedApp) };
+        if (selectedAppForReview && selectedAppForReview.id === appId) {
+          setTimeout(() => setSelectedAppForReview(calculated), 0);
+        }
+        return calculated;
+      }));
+      showToast(`✅ Stage updated to ${newStage}!`);
+    }
+  };
+
+  const handleCloseBreachedApp = async (appId) => {
+    try {
+      await apiFetch(`/applications/${appId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Completed', remarks: resolutionRemarks })
+      });
+      setResolutionApp(null);
+      fetchData();
+      showToast(`✅ Case ${appId} resolved & completed!`);
+    } catch (err) {
+      console.log('API Offline. Simulating local case close...');
+      setApplications(prev => prev.map(app => {
+        if (app.id !== appId) return app;
+
+        const smsText = `Dear ${app.applicantName}, your application ${app.id} (${app.service}) has been administratively closed & resolved. Remarks: ${resolutionRemarks}. - Govt Services`;
+        const newSms = {
+          stage: 'Completion',
+          message: smsText,
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Delivered'
+        };
+
+        const updatedApp = {
+          ...app,
+          status: 'Completed',
+          stage: 'Completion',
+          daysRemaining: 0,
+          riskLevel: 'Low',
+          risk_score: 0,
+          smsHistory: [...(app.smsHistory || []), newSms],
+          timeline: [
+            ...(app.timeline || []),
+            { date: new Date().toISOString(), event: `Case administratively resolved & closed by Officer ${currentOfficer.name}. Remarks: ${resolutionRemarks}` }
+          ]
+        };
+
+        const calculated = { ...updatedApp, ...predictRisk(updatedApp) };
+        if (selectedAppForReview && selectedAppForReview.id === appId) {
+          setTimeout(() => setSelectedAppForReview(calculated), 0);
+        }
+        return calculated;
+      }));
+      setResolutionApp(null);
+      showToast(`✅ Case ${appId} Resolved & Closed!`);
+    }
+  };
+
+  const handleSendSMS = () => {
+    if (!smsModalApp || !smsCustomText) return;
+    setApplications(prev => prev.map(app => {
+      if (app.id !== smsModalApp.id) return app;
+
+      const newSms = {
+        stage: app.stage || 'Submission',
+        message: smsCustomText,
+        timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        status: 'Delivered'
+      };
+
+      const updatedApp = {
+        ...app,
+        smsHistory: [...(app.smsHistory || []), newSms],
+        timeline: [
+          ...(app.timeline || []),
+          { date: new Date().toISOString(), event: `Custom Alert SMS sent to citizen: "${smsCustomText}"` }
+        ]
+      };
+
+      const calculated = { ...updatedApp, ...predictRisk(updatedApp) };
+      if (selectedAppForReview && selectedAppForReview.id === app.id) {
+        setTimeout(() => setSelectedAppForReview(calculated), 0);
+      }
+      return calculated;
+    }));
+    setSmsModalApp(null);
+    showToast(`📲 SMS update dispatched via NIC Gateway!`);
+  };
+
+  const handleStartVerification = async (appId) => {
+    try {
+      await apiFetch(`/applications/${appId}/verification`, {
+        method: 'POST', body: JSON.stringify({ action: 'start', remarks: 'Starting verification' })
+      });
+      fetchData();
+      showToast(`✅ Verification started for ${appId}`);
+    } catch (err) {
+      setApplications(prev => prev.map(app => {
+        if (app.id !== appId) return app;
+
+        const smsText = `Dear ${app.applicantName}, files verified and Scrutiny is initiated for request ${app.id}. Status: Scrutiny. - Govt Services`;
+        const newSms = {
+          stage: 'Scrutiny',
+          message: smsText,
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Delivered'
+        };
+
+        const updatedApp = {
+          ...app,
+          verification_status: 'IN_PROGRESS',
+          stage: 'Scrutiny',
+          smsHistory: [...(app.smsHistory || []), newSms],
+          timeline: [
+            ...(app.timeline || []),
+            { date: new Date().toISOString(), event: `Verification started & stage set to Scrutiny.` }
+          ]
+        };
+        return { ...updatedApp, ...predictRisk(updatedApp) };
+      }));
+      showToast(`✅ [Demo] Verification started for ${appId}`);
+    }
+  };
+
+  const handleCompleteVerification = async (appId) => {
+    try {
+      await apiFetch(`/applications/${appId}/verification`, {
+        method: 'POST', body: JSON.stringify({ action: 'complete', remarks: 'All documents verified' })
+      });
+      fetchData();
+      showToast(`✅ Verification completed for ${appId}`);
+    } catch (err) {
+      setApplications(prev => prev.map(app => {
+        if (app.id !== appId) return app;
+
+        const smsText = `Dear ${app.applicantName}, verification successfully completed for request ${app.id}. Proceeding to Approval stage. - Govt Services`;
+        const newSms = {
+          stage: 'Verification',
+          message: smsText,
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Delivered'
+        };
+
+        const updatedApp = {
+          ...app,
+          verification_status: 'COMPLETED',
+          stage: 'Verification',
+          smsHistory: [...(app.smsHistory || []), newSms],
+          timeline: [
+            ...(app.timeline || []),
+            { date: new Date().toISOString(), event: `Verification completed & stage set to Verification.` }
+          ]
+        };
+        return { ...updatedApp, ...predictRisk(updatedApp) };
+      }));
+      showToast(`✅ [Demo] Verification completed for ${appId}`);
+    }
+  };
+
+  const handleRejectVerification = async (appId) => {
+    try {
+      await apiFetch(`/applications/${appId}/verification`, {
+        method: 'POST', body: JSON.stringify({ action: 'reject', remarks: 'Documents insufficient' })
+      });
+      fetchData();
+      showToast(`❌ Verification rejected for ${appId}`);
+    } catch (err) {
+      setApplications(prev => prev.map(app => {
+        if (app.id !== appId) return app;
+
+        const smsText = `Dear ${app.applicantName}, we regret to inform you that your application ${app.id} (${app.service}) has been Rejected due to insufficient documents.`;
+        const newSms = {
+          stage: 'Completion',
+          message: smsText,
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          status: 'Failed'
+        };
+
+        const updatedApp = {
+          ...app,
+          status: 'Rejected',
+          verification_status: 'REJECTED',
+          stage: 'Completion',
+          daysRemaining: 0,
+          riskLevel: 'Low',
+          risk_score: 0,
+          smsHistory: [...(app.smsHistory || []), newSms],
+          timeline: [
+            ...(app.timeline || []),
+            { date: new Date().toISOString(), event: `Verification rejected & application marked as Rejected.` }
+          ]
+        };
+        return updatedApp;
+      }));
+      showToast(`❌ [Demo] Verification rejected for ${appId}`);
+    }
   };
 
   // ─── Export & Template Downloads ─────────────────────────────────────────
@@ -1343,7 +1630,7 @@ export function App() {
                             </td>
                             <td className="py-4 px-6 text-right">
                               <button
-                                onClick={() => setSelectedAppForReview(app)}
+                                onClick={() => handleOpenReviewModal(app)}
                                 className="px-4 py-1.5 rounded-md bg-[#0F4A44] hover:bg-[#0B3834] text-white text-xs font-semibold transition shadow-sm"
                               >
                                 Review
@@ -1464,6 +1751,24 @@ export function App() {
                     <option value="Scholarship Application">Scholarship Application</option>
                   </select>
 
+                  <div className="relative shrink-0 flex items-center">
+                    <input
+                      type="text"
+                      value={docSearchQuery}
+                      onChange={e => setDocSearchQuery(e.target.value)}
+                      placeholder="Search Document Name..."
+                      className="px-3.5 py-2 pl-8 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-semibold placeholder-slate-400/80 w-44"
+                    />
+                    <FileText className="absolute left-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  </div>
+
+                  <select value={seenFilter} onChange={e => setSeenFilter(e.target.value)}
+                    className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-semibold">
+                    <option value="All">All Read Statuses</option>
+                    <option value="Unseen">✉️ Not Seen / Unread</option>
+                    <option value="Seen">👁️ Seen / Read</option>
+                  </select>
+
                   {/* Drag & Drop Upload Zone Beside Intake */}
                   <div
                     onDragOver={(e) => { e.preventDefault(); setUploadDragActive(true); }}
@@ -1533,9 +1838,22 @@ export function App() {
                           <div>{formatDate(app)}</div>
                           <div className="text-[10px] text-slate-400 font-mono font-normal">{app.id}</div>
                         </td>
-                        <td className="py-3.5 px-4">{app.applicantName}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{app.applicantName}</span>
+                            {seenApps.includes(app.id) ? (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200/50" title="Reviewed by Officer">
+                                👁️ Seen
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200/50 animate-pulse" title="Not reviewed yet">
+                                ✉️ Unread
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-3.5 px-4">{app.service}</td>
-                        <td className="py-3.5 px-4 text-slate-500">{app.stage}</td>
+                        <td className="py-3.5 px-4 text-slate-500 font-semibold">{app.stage}</td>
                         <td className="py-3.5 px-3 text-center font-bold">{app.daysHeld}</td>
                         <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : ''}`}>{app.daysRemaining}</td>
                         <td className="py-3.5 px-3">
@@ -1555,8 +1873,8 @@ export function App() {
                           }`}>{app.priority}</span>
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <button onClick={() => setSelectedAppForReview(app)}
-                            className="px-3 py-1 bg-[#0F4A44] text-white rounded text-xs font-semibold">
+                          <button onClick={() => handleOpenReviewModal(app)}
+                            className="px-3 py-1.5 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded text-xs font-semibold shadow-sm transition">
                             Review
                           </button>
                         </td>
@@ -1777,8 +2095,8 @@ export function App() {
                           )}
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <button onClick={() => setSelectedAppForReview(app)}
-                            className="px-3 py-1 bg-[#0F4A44] text-white rounded text-xs font-semibold">Review</button>
+                          <button onClick={() => handleOpenReviewModal(app)}
+                            className="px-3 py-1 bg-[#0F4A44] text-white rounded text-xs font-semibold hover:bg-[#0B3834] transition">Review</button>
                         </td>
                       </tr>
                     ))}
@@ -1833,31 +2151,13 @@ export function App() {
                       }`}>{app.verification_status}</span>
                     </div>
                     <div className="flex gap-2">
-                      {app.verification_status === 'PENDING' && (
-                        <button onClick={async () => {
-                          await apiFetch(`/applications/${app.id}/verification`, {
-                            method: 'POST', body: JSON.stringify({ action: 'start', remarks: 'Starting verification' })
-                          });
-                          showToast(`✅ Verification started for ${app.id}`);
-                          fetchData();
-                        }} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold">Start</button>
+                       {app.verification_status === 'PENDING' && (
+                        <button onClick={() => handleStartVerification(app.id)} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold">Start</button>
                       )}
                       {app.verification_status === 'IN_PROGRESS' && (
                         <>
-                          <button onClick={async () => {
-                            await apiFetch(`/applications/${app.id}/verification`, {
-                              method: 'POST', body: JSON.stringify({ action: 'complete', remarks: 'All documents verified' })
-                            });
-                            showToast(`✅ Verification completed for ${app.id}`);
-                            fetchData();
-                          }} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold">Complete</button>
-                          <button onClick={async () => {
-                            await apiFetch(`/applications/${app.id}/verification`, {
-                              method: 'POST', body: JSON.stringify({ action: 'reject', remarks: 'Documents insufficient' })
-                            });
-                            showToast(`❌ Verification rejected for ${app.id}`);
-                            fetchData();
-                          }} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold">Reject</button>
+                          <button onClick={() => handleCompleteVerification(app.id)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold">Complete</button>
+                          <button onClick={() => handleRejectVerification(app.id)} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold">Reject</button>
                         </>
                       )}
                     </div>
@@ -2388,15 +2688,15 @@ export function App() {
                     <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold">NIC Gateway Connected</span>
                   </div>
                   <select
-                    value={selectedAppForReview.stage || 'Submitted'}
+                    value={selectedAppForReview.stage || 'Submission'}
                     onChange={(e) => handleStageTransition(selectedAppForReview.id, e.target.value)}
                     className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none dark:text-white"
                   >
-                    <option value="Submitted">Submitted (Stage 1)</option>
-                    <option value="Document Verification">Document Verification (Stage 2)</option>
-                    <option value="Field Verification">Field Verification (Stage 3)</option>
-                    <option value="Final Approval">Final Approval (Stage 4)</option>
-                    <option value="Approved">Approved (Final Stage)</option>
+                    <option value="Submission">Submission (Stage 1)</option>
+                    <option value="Scrutiny">Scrutiny (Stage 2)</option>
+                    <option value="Verification">Verification (Stage 3)</option>
+                    <option value="Approval">Approval (Stage 4)</option>
+                    <option value="Completion">Completion (Final Stage)</option>
                   </select>
                 </div>
               )}
@@ -2461,7 +2761,17 @@ export function App() {
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button onClick={() => setSelectedAppForReview(null)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold">
+              <button
+                onClick={() => handleToggleSeen(selectedAppForReview.id)}
+                className={`mr-auto px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm border ${
+                  seenApps.includes(selectedAppForReview.id)
+                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50'
+                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50'
+                }`}
+              >
+                {seenApps.includes(selectedAppForReview.id) ? '✉️ Mark as Unseen' : '👁️ Mark as Seen'}
+              </button>
+              <button onClick={() => setSelectedAppForReview(null)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">
                 Close
               </button>
               {selectedAppForReview.status !== 'Approved' && selectedAppForReview.status !== 'Completed' && (
