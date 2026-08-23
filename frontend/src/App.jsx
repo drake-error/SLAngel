@@ -393,6 +393,9 @@ export function App() {
 
   const handleOpenReviewModal = (app) => {
     setSelectedAppForReview(app);
+    if (!seenApps.includes(app.id)) {
+      trackAction('profilesSeen');
+    }
     setSeenApps(prev => {
       if (prev.includes(app.id)) return prev;
       const next = [...prev, app.id];
@@ -401,12 +404,14 @@ export function App() {
       } catch (err) {
         console.error(err);
       }
-      trackAction('profilesSeen');
       return next;
     });
   };
 
   const handleToggleSeen = (appId) => {
+    if (!seenApps.includes(appId)) {
+      trackAction('profilesSeen');
+    }
     setSeenApps(prev => {
       const isAlreadySeen = prev.includes(appId);
       const next = isAlreadySeen ? prev.filter(id => id !== appId) : [...prev, appId];
