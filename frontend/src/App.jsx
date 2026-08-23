@@ -1706,20 +1706,21 @@ export function App() {
                             </td>
 
                             <td className="py-4 px-6 text-right flex justify-end gap-1.5 items-center">
-                              {app.daysRemaining <= 0 && (
+                              {app.daysRemaining <= 0 ? (
                                 <button
                                   onClick={() => setResolutionApp(app)}
                                   className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-sm animate-pulse"
                                 >
                                   Close
                                 </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleOpenReviewModal(app)}
+                                  className="px-4 py-1.5 rounded-md bg-[#0F4A44] hover:bg-[#0B3834] text-white text-xs font-semibold transition shadow-sm"
+                                >
+                                  Review
+                                </button>
                               )}
-                              <button
-                                onClick={() => handleOpenReviewModal(app)}
-                                className="px-4 py-1.5 rounded-md bg-[#0F4A44] hover:bg-[#0B3834] text-white text-xs font-semibold transition shadow-sm"
-                              >
-                                Review
-                              </button>
                             </td>
                           </tr>
                         ))}
@@ -1941,16 +1942,17 @@ export function App() {
                           }`}>{app.priority}</span>
                         </td>
                         <td className="py-3.5 px-4 text-right flex justify-end gap-1.5 items-center">
-                          {app.daysRemaining <= 0 && (
+                          {app.daysRemaining <= 0 ? (
                             <button onClick={() => setResolutionApp(app)}
                               className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold shadow-sm transition animate-pulse">
                               Close
                             </button>
+                          ) : (
+                            <button onClick={() => handleOpenReviewModal(app)}
+                              className="px-3 py-1.5 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded text-xs font-semibold shadow-sm transition">
+                              Review
+                            </button>
                           )}
-                          <button onClick={() => handleOpenReviewModal(app)}
-                            className="px-3 py-1.5 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded text-xs font-semibold shadow-sm transition">
-                            Review
-                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2155,14 +2157,15 @@ export function App() {
                           )}
                         </td>
                         <td className="py-3.5 px-4 text-right flex justify-end gap-1.5 items-center">
-                          {app.daysRemaining <= 0 && (
+                          {app.daysRemaining <= 0 ? (
                             <button onClick={() => setResolutionApp(app)}
                               className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold shadow-sm transition animate-pulse">
                               Close
                             </button>
+                          ) : (
+                            <button onClick={() => handleOpenReviewModal(app)}
+                              className="px-3 py-1 bg-[#0F4A44] text-white rounded text-xs font-semibold hover:bg-[#0B3834] transition">Review</button>
                           )}
-                          <button onClick={() => handleOpenReviewModal(app)}
-                            className="px-3 py-1 bg-[#0F4A44] text-white rounded text-xs font-semibold hover:bg-[#0B3834] transition">Review</button>
                         </td>
                       </tr>
                     ))}
@@ -2732,7 +2735,7 @@ export function App() {
               )}
 
               {/* Stage Transition Control */}
-              {selectedAppForReview.status !== 'Approved' && selectedAppForReview.status !== 'Completed' && (
+              {selectedAppForReview.status !== 'Approved' && selectedAppForReview.status !== 'Completed' && selectedAppForReview.daysRemaining > 0 && (
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
                   <div className="flex justify-between items-center">
                     <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Update Stage (Triggers Auto-SMS to Citizen)</label>
@@ -2767,19 +2770,9 @@ export function App() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setResolutionApp(selectedAppForReview)}
-                      className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-sm"
+                      className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-sm w-full justify-center"
                     >
                       <Check className="w-3.5 h-3.5" /> Close & Archive Case
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSmsModalApp(selectedAppForReview);
-                        setSmsTemplate('Delay');
-                        setSmsCustomText(`Dear ${selectedAppForReview.applicantName}, we apologize for the delay. Your application ${selectedAppForReview.id} for ${selectedAppForReview.service} is overdue by ${Math.abs(selectedAppForReview.daysRemaining)} days. Our officers are resolving it immediately. Status: IN_PRIORITY_RESOLVE.`);
-                      }}
-                      className="px-3 py-1.5 bg-slate-950 dark:bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-sm"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" /> Send Alert SMS
                     </button>
                   </div>
                 </div>
@@ -2825,7 +2818,7 @@ export function App() {
               <button onClick={() => setSelectedAppForReview(null)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">
                 Close
               </button>
-              {selectedAppForReview.status !== 'Approved' && selectedAppForReview.status !== 'Completed' && (
+              {selectedAppForReview.status !== 'Approved' && selectedAppForReview.status !== 'Completed' && selectedAppForReview.daysRemaining > 0 && (
                 <button onClick={() => handleApproveApp(selectedAppForReview.id)} className="px-4 py-2 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded-lg text-xs font-bold transition shadow-sm">
                   Approve & Issue Certificate
                 </button>
