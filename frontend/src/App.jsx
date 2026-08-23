@@ -28,7 +28,12 @@ import {
   Film,
   LogIn,
   LogOut,
-  Settings
+  Settings,
+  User,
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
+  Activity
 } from 'lucide-react';
 import IntroAnimation from './components/IntroAnimation';
 import { DEMO_USER, DEMO_OFFICERS, DEMO_APPLICATIONS, DEMO_DASHBOARD, DEMO_ALERTS } from './data/demoData';
@@ -317,6 +322,54 @@ export function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // ─── Officer Activity Tracking ──────────────────────────────────────────
+  const [loginSessionStart] = useState(() => Date.now());
+  const [officerActions, setOfficerActions] = useState(() => {
+    try {
+      const stored = localStorage.getItem('slangel_officer_actions');
+      return stored ? JSON.parse(stored) : {
+        profilesSeen: 0,
+        applicationsApproved: 0,
+        applicationsRejected: 0,
+        verificationsStarted: 0,
+        verificationsCompleted: 0,
+        expedited: 0,
+        smsDispatched: 0,
+        sessionsLogged: [],
+        totalMinutesLogged: 0
+      };
+    } catch {
+      return {
+        profilesSeen: 0, applicationsApproved: 0, applicationsRejected: 0,
+        verificationsStarted: 0, verificationsCompleted: 0, expedited: 0,
+        smsDispatched: 0, sessionsLogged: [], totalMinutesLogged: 0
+      };
+    }
+  });
+  const [sessionElapsed, setSessionElapsed] = useState(0);
+
+  // Update session elapsed time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSessionElapsed(Math.floor((Date.now() - loginSessionStart) / 60000));
+    }, 60000);
+    // Set initial value
+    setSessionElapsed(Math.floor((Date.now() - loginSessionStart) / 60000));
+    return () => clearInterval(interval);
+  }, [loginSessionStart]);
+
+  // Persist officer actions
+  useEffect(() => {
+    localStorage.setItem('slangel_officer_actions', JSON.stringify(officerActions));
+  }, [officerActions]);
+
+  const trackAction = useCallback((actionType) => {
+    setOfficerActions(prev => ({
+      ...prev,
+      [actionType]: (prev[actionType] || 0) + 1
+    }));
+  }, []);
+
   // Gemini AI Analysis states
   const [aiAnalysisResult, setAiAnalysisResult] = useState(null);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
@@ -348,6 +401,7 @@ export function App() {
       } catch (err) {
         console.error(err);
       }
+      trackAction('profilesSeen');
       return next;
     });
   };
@@ -577,6 +631,7 @@ export function App() {
       });
       setSelectedAppForReview(null);
       showToast(`✅ Application ${appId} Approved! Citizen notified via SMS.`);
+      trackAction('applicationsApproved');
       fetchData();
     } catch (err) {
       console.log('API Offline. Simulating local approval...');
@@ -613,6 +668,7 @@ export function App() {
 
       setSelectedAppForReview(null);
       showToast(`✅ [Demo] Application ${appId} Approved & Closed!`);
+      trackAction('applicationsApproved');
     }
   };
 
@@ -881,6 +937,7 @@ export function App() {
       });
       fetchData();
       showToast(`✅ Verification started for ${appId}`);
+      trackAction('verificationsStarted');
     } catch (err) {
       setApplications(prev => prev.map(app => {
         if (app.id !== appId) return app;
@@ -908,6 +965,7 @@ export function App() {
         return calculated;
       }));
       showToast(`✅ [Demo] Verification started for ${appId}`);
+      trackAction('verificationsStarted');
     }
   };
 
@@ -918,6 +976,7 @@ export function App() {
       });
       fetchData();
       showToast(`✅ Verification completed for ${appId}`);
+      trackAction('verificationsCompleted');
     } catch (err) {
       setApplications(prev => prev.map(app => {
         if (app.id !== appId) return app;
@@ -945,6 +1004,7 @@ export function App() {
         return calculated;
       }));
       showToast(`✅ [Demo] Verification completed for ${appId}`);
+      trackAction('verificationsCompleted');
     }
   };
 
@@ -955,6 +1015,7 @@ export function App() {
       });
       fetchData();
       showToast(`❌ Verification rejected for ${appId}`);
+      trackAction('applicationsRejected');
     } catch (err) {
       setApplications(prev => prev.map(app => {
         if (app.id !== appId) return app;
@@ -985,6 +1046,7 @@ export function App() {
         return updatedApp;
       }));
       showToast(`❌ [Demo] Verification rejected for ${appId}`);
+      trackAction('applicationsRejected');
     }
   };
 
@@ -1438,6 +1500,7 @@ export function App() {
               { id: 'sla-alerts', label: 'SLA Alerts', icon: Bell, alertCount: alerts.length || '0' },
               { id: 'verification', label: 'Verification', icon: CheckSquare },
               { id: 'citizen-updates', label: 'Citizen Updates', icon: MessageSquare },
+              { id: 'officer-profile', label: 'Officer Profile', icon: User },
             ].map((item) => {
               const isActive = activeTab === item.id;
               const IconComp = item.icon;
@@ -2421,6 +2484,259 @@ export function App() {
               </div>
             </div>
           )}
+
+          {/* Officer Profile Tab */}
+          {activeTab === 'officer-profile' && (() => {
+            const totalActions = (officerActions.profilesSeen || 0) + (officerActions.applicationsApproved || 0) + (officerActions.applicationsRejected || 0) + (officerActions.verificationsStarted || 0) + (officerActions.verificationsCompleted || 0);
+            const sessionMinutes = sessionElapsed || 1;
+            const totalLoggedMinutes = (officerActions.totalMinutesLogged || 0) + sessionMinutes;
+            const sessionHours = Math.floor(sessionMinutes / 60);
+            const sessionMins = sessionMinutes % 60;
+
+            // Pie chart data — time allocation breakdown
+            const reviewTime = Math.max(1, (officerActions.profilesSeen || 0) * 8);
+            const approvalTime = Math.max(1, (officerActions.applicationsApproved || 0) * 5);
+            const verificationTime = Math.max(1, ((officerActions.verificationsStarted || 0) + (officerActions.verificationsCompleted || 0)) * 6);
+            const rejectionTime = Math.max(1, (officerActions.applicationsRejected || 0) * 4);
+            const idleTime = Math.max(1, sessionMinutes - (reviewTime + approvalTime + verificationTime + rejectionTime));
+            const totalTime = reviewTime + approvalTime + verificationTime + rejectionTime + Math.max(0, idleTime);
+            
+            const pieSlices = [
+              { label: 'Reviewing', value: reviewTime, color: '#3B82F6' },
+              { label: 'Approvals', value: approvalTime, color: '#10B981' },
+              { label: 'Verification', value: verificationTime, color: '#8B5CF6' },
+              { label: 'Rejections', value: rejectionTime, color: '#EF4444' },
+              { label: 'Other/Idle', value: Math.max(0, idleTime), color: '#94A3B8' },
+            ].filter(s => s.value > 0);
+
+            // Build SVG pie chart arcs
+            const renderPieChart = () => {
+              const cx = 90, cy = 90, r = 75;
+              let currentAngle = -90;
+              const paths = [];
+              pieSlices.forEach((slice, i) => {
+                const pct = slice.value / totalTime;
+                const angle = pct * 360;
+                const startRad = (currentAngle * Math.PI) / 180;
+                const endRad = ((currentAngle + angle) * Math.PI) / 180;
+                const x1 = cx + r * Math.cos(startRad);
+                const y1 = cy + r * Math.sin(startRad);
+                const x2 = cx + r * Math.cos(endRad);
+                const y2 = cy + r * Math.sin(endRad);
+                const largeArc = angle > 180 ? 1 : 0;
+                paths.push(
+                  <path key={i} d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                    fill={slice.color} stroke="white" strokeWidth="2" opacity="0.9"
+                    className="transition-all duration-300 hover:opacity-100"
+                  />
+                );
+                currentAngle += angle;
+              });
+              return paths;
+            };
+
+            // Performance assessment
+            const actionsPerMinute = totalActions / Math.max(1, sessionMinutes);
+            const performanceScore = Math.min(100, Math.round(
+              ((officerActions.profilesSeen || 0) * 5 +
+              (officerActions.applicationsApproved || 0) * 15 +
+              (officerActions.applicationsRejected || 0) * 10 +
+              (officerActions.verificationsCompleted || 0) * 12 +
+              Math.min(sessionMinutes, 480) * 0.2) 
+            ));
+            const perfLabel = performanceScore >= 80 ? 'Excellent' : performanceScore >= 50 ? 'Good' : performanceScore >= 25 ? 'Active' : 'Idle';
+            const perfColor = performanceScore >= 80 ? 'text-emerald-600' : performanceScore >= 50 ? 'text-blue-600' : performanceScore >= 25 ? 'text-amber-600' : 'text-red-600';
+            const perfBg = performanceScore >= 80 ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' : performanceScore >= 50 ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' : performanceScore >= 25 ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800' : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800';
+
+            return (
+            <div className="space-y-6">
+              {/* Officer Header Card */}
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#0F4A44] to-[#1a6b5a] text-white flex items-center justify-center text-3xl font-black shadow-lg ring-4 ring-[#0F4A44]/20">
+                    {currentOfficer.name?.charAt(0) || 'O'}
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white">{currentOfficer.name}</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{currentOfficer.title || currentOfficer.context || user?.role || 'Revenue Officer'}</p>
+                    <div className="flex flex-wrap items-center gap-3 mt-2">
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        {currentOfficer.employee_id || 'EMP-0001'}
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        {currentOfficer.department || 'Revenue & Land Records'}
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Online — {sessionHours}h {sessionMins}m
+                      </span>
+                    </div>
+                  </div>
+                  {/* Performance Score Badge */}
+                  <div className={`p-4 rounded-xl border text-center min-w-[120px] ${perfBg}`}>
+                    <div className={`text-3xl font-black ${perfColor}`}>{performanceScore}</div>
+                    <div className={`text-xs font-bold mt-1 ${perfColor}`}>{perfLabel}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">Performance Score</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="bg-white dark:bg-[#111827] rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+                  <Eye className="w-5 h-5 mx-auto text-blue-500 mb-2" />
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">{officerActions.profilesSeen || 0}</div>
+                  <div className="text-[10px] font-semibold text-slate-500 mt-1">Profiles Seen</div>
+                </div>
+                <div className="bg-white dark:bg-[#111827] rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+                  <ThumbsUp className="w-5 h-5 mx-auto text-emerald-500 mb-2" />
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">{officerActions.applicationsApproved || 0}</div>
+                  <div className="text-[10px] font-semibold text-slate-500 mt-1">Approved</div>
+                </div>
+                <div className="bg-white dark:bg-[#111827] rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+                  <ThumbsDown className="w-5 h-5 mx-auto text-red-500 mb-2" />
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">{officerActions.applicationsRejected || 0}</div>
+                  <div className="text-[10px] font-semibold text-slate-500 mt-1">Rejected</div>
+                </div>
+                <div className="bg-white dark:bg-[#111827] rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+                  <CheckSquare className="w-5 h-5 mx-auto text-violet-500 mb-2" />
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">{(officerActions.verificationsStarted || 0) + (officerActions.verificationsCompleted || 0)}</div>
+                  <div className="text-[10px] font-semibold text-slate-500 mt-1">Verifications</div>
+                </div>
+                <div className="bg-white dark:bg-[#111827] rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+                  <Activity className="w-5 h-5 mx-auto text-amber-500 mb-2" />
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">{totalActions}</div>
+                  <div className="text-[10px] font-semibold text-slate-500 mt-1">Total Actions</div>
+                </div>
+                <div className="bg-white dark:bg-[#111827] rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+                  <Clock className="w-5 h-5 mx-auto text-teal-500 mb-2" />
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">{sessionHours}h {sessionMins}m</div>
+                  <div className="text-[10px] font-semibold text-slate-500 mt-1">Login Duration</div>
+                </div>
+              </div>
+
+              {/* Main Content: Pie Chart + Activity Log */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Pie Chart */}
+                <div className="lg:col-span-5 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-slate-500" />
+                    Time Allocation on SLAngel
+                  </h3>
+                  <div className="flex flex-col items-center">
+                    <svg viewBox="0 0 180 180" className="w-44 h-44 drop-shadow-md">
+                      {renderPieChart()}
+                      <circle cx="90" cy="90" r="35" fill="white" className="dark:fill-[#111827]" />
+                      <text x="90" y="85" textAnchor="middle" className="fill-slate-900 dark:fill-white text-[14px] font-black">{sessionMinutes}</text>
+                      <text x="90" y="100" textAnchor="middle" className="fill-slate-500 text-[8px] font-semibold">min logged</text>
+                    </svg>
+                    {/* Legend */}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-5 w-full">
+                      {pieSlices.map((slice, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-sm shrink-0" style={{backgroundColor: slice.color}}></span>
+                          <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">{slice.label}</span>
+                          <span className="text-xs text-slate-400 ml-auto font-bold">{Math.round((slice.value / totalTime) * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Log & Session Details */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Government Evidence Card */}
+                  <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-[#0F4A44]" />
+                      Government Accountability Log
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-500 font-semibold">
+                            <th className="text-left py-2.5 px-3">Metric</th>
+                            <th className="text-center py-2.5 px-3">Value</th>
+                            <th className="text-left py-2.5 px-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-200">Login Time</td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-slate-900 dark:text-white">{new Date(loginSessionStart).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
+                            <td className="py-3 px-3"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 font-bold text-[10px]">Active</span></td>
+                          </tr>
+                          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-200">Session Duration</td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-slate-900 dark:text-white">{sessionHours}h {sessionMins}m</td>
+                            <td className="py-3 px-3"><span className={`px-2 py-0.5 rounded font-bold text-[10px] ${sessionMinutes >= 30 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300'}`}>{sessionMinutes >= 30 ? 'Sufficient' : 'Low'}</span></td>
+                          </tr>
+                          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-200">Applications Reviewed</td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-slate-900 dark:text-white">{officerActions.profilesSeen || 0}</td>
+                            <td className="py-3 px-3"><span className={`px-2 py-0.5 rounded font-bold text-[10px] ${(officerActions.profilesSeen || 0) >= 3 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300'}`}>{(officerActions.profilesSeen || 0) >= 3 ? 'On Track' : 'Below Target'}</span></td>
+                          </tr>
+                          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-200">Decisions Made (Accept/Reject)</td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-slate-900 dark:text-white">{(officerActions.applicationsApproved || 0) + (officerActions.applicationsRejected || 0)}</td>
+                            <td className="py-3 px-3"><span className={`px-2 py-0.5 rounded font-bold text-[10px] ${((officerActions.applicationsApproved || 0) + (officerActions.applicationsRejected || 0)) >= 2 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300'}`}>{((officerActions.applicationsApproved || 0) + (officerActions.applicationsRejected || 0)) >= 2 ? 'Productive' : 'Pending'}</span></td>
+                          </tr>
+                          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-200">Actions per Minute</td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-slate-900 dark:text-white">{actionsPerMinute.toFixed(2)}</td>
+                            <td className="py-3 px-3"><span className={`px-2 py-0.5 rounded font-bold text-[10px] ${actionsPerMinute >= 0.05 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300' : 'bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-300'}`}>{actionsPerMinute >= 0.05 ? 'Working' : 'Idle'}</span></td>
+                          </tr>
+                          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-200">Performance Rating</td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-slate-900 dark:text-white">{performanceScore}/100</td>
+                            <td className="py-3 px-3"><span className={`px-2 py-0.5 rounded font-bold text-[10px] ${performanceScore >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300' : performanceScore >= 25 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300' : 'bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-300'}`}>{perfLabel}</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                        <strong className="text-slate-700 dark:text-slate-300">Disclaimer:</strong> This data is auto-generated by SLAngel platform as part of the Government Employee Accountability Framework. 
+                        Login hours, application reviews, and action logs serve as auditable evidence of officer engagement with the portal. 
+                        Data is timestamped and persisted for compliance reporting.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions Summary */}
+                  <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Action Breakdown</h3>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Profiles Reviewed', count: officerActions.profilesSeen || 0, max: 10, color: 'bg-blue-500' },
+                        { label: 'Applications Approved', count: officerActions.applicationsApproved || 0, max: 10, color: 'bg-emerald-500' },
+                        { label: 'Applications Rejected', count: officerActions.applicationsRejected || 0, max: 10, color: 'bg-red-500' },
+                        { label: 'Verifications Processed', count: (officerActions.verificationsStarted || 0) + (officerActions.verificationsCompleted || 0), max: 10, color: 'bg-violet-500' },
+                      ].map((item, i) => (
+                        <div key={i}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{item.label}</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">{item.count}</span>
+                          </div>
+                          <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                            <div className={`h-full rounded-full ${item.color} transition-all duration-700`} style={{width: `${Math.min(100, (item.count / item.max) * 100)}%`}}></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reset Stats */}
+              <div className="text-center">
+                <button onClick={() => { setOfficerActions({ profilesSeen: 0, applicationsApproved: 0, applicationsRejected: 0, verificationsStarted: 0, verificationsCompleted: 0, expedited: 0, smsDispatched: 0, sessionsLogged: [], totalMinutesLogged: 0 }); showToast('Officer stats reset.'); }} className="text-xs text-slate-400 hover:text-red-500 transition font-medium">
+                  Reset All Statistics
+                </button>
+              </div>
+            </div>
+            );
+          })()}
 
         </main>
       </div>
