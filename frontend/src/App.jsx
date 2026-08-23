@@ -690,7 +690,7 @@ export function App() {
       let citizenComment = "";
       
       const isBreached = app.daysRemaining <= 0;
-      const daysStr = Math.abs(app.daysRemaining);
+      const daysStr = Math.max(0, app.daysRemaining);
       
       if (isBreached) {
         remarks = `[Gemini Audit] Critical SLA Breach detected. Application is overdue by ${daysStr} day(s). Recommended resolution: Immediately verify applicant Aadhaar e-KYC status and trigger administrative closure with Remarks. No pending document validation found.`;
@@ -1712,7 +1712,7 @@ export function App() {
                             <td className="py-4 px-4 text-slate-600 dark:text-slate-400">{app.stage}</td>
                             <td className="py-4 px-4 text-center font-semibold text-slate-900 dark:text-white">{app.daysHeld}</td>
                             <td className={`py-4 px-4 text-center font-bold ${app.daysRemaining <= 1 ? 'text-[#DC2626]' : 'text-slate-900 dark:text-white'}`}>
-                              {Math.abs(app.daysRemaining)}
+                              {Math.max(0, app.daysRemaining)}
                             </td>
 
                             <td className="py-4 px-6 text-right flex justify-end gap-1.5 items-center">
@@ -1941,7 +1941,7 @@ export function App() {
                         <td className="py-3.5 px-4">{app.service}</td>
                         <td className="py-3.5 px-4 text-slate-500 font-semibold">{app.stage}</td>
                         <td className="py-3.5 px-3 text-center font-bold">{app.daysHeld}</td>
-                        <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : ''}`}>{Math.abs(app.daysRemaining)}</td>
+                        <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : ''}`}>{Math.max(0, app.daysRemaining)}</td>
 
                         <td className="py-3.5 px-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -2142,7 +2142,7 @@ export function App() {
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
                         <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : app.daysRemaining <= 3 ? 'text-amber-600' : ''}`}>
-                          {Math.abs(app.daysRemaining)}
+                          {Math.max(0, app.daysRemaining)}
                         </td>
 
                         <td className="py-3.5 px-3">
@@ -2226,7 +2226,7 @@ export function App() {
                   <div key={app.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">{app.id} — {app.service}</h4>
-                      <p className="text-xs text-slate-500 mt-1">{app.applicantName} • {app.department} • {Math.abs(app.daysRemaining)} days remaining</p>
+                      <p className="text-xs text-slate-500 mt-1">{app.applicantName} • {app.department} • {Math.max(0, app.daysRemaining)} days remaining</p>
                       <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold ${
                         app.verification_status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
                       }`}>{app.verification_status}</span>
@@ -2277,7 +2277,7 @@ export function App() {
                       detail: `It has been ${app.daysHeld || 0} days since submission.`,
                       next_steps: "No action required from your end.",
                       urgency: app.riskLevel === 'Critical' ? 'urgent' : app.riskLevel === 'High' ? 'attention' : 'normal',
-                      estimated_completion: `${Math.abs(app.daysRemaining)} days remaining`
+                      estimated_completion: `${Math.max(0, app.daysRemaining)} days remaining`
                     };
 
                     const urgencyStyles = {
