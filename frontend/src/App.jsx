@@ -508,66 +508,12 @@ export function App() {
     };
   }, [applications]);
 
-  // ─── Analytics Tab Metrics (Calculated dynamically) ─────────────────────
-  const analyticsMetrics = useMemo(() => {
-    const apps = (applications || []).filter(app => {
-      if (!app) return false;
-      const matchesDept = departmentFilter === 'All' || app.department === departmentFilter;
-      const matchesService = serviceFilter === 'All' || app.service === serviceFilter;
-      return matchesDept && matchesService;
-    });
-
-    const total = apps.length;
-    const closed = apps.filter(a => a && (a.status === 'Approved' || a.status === 'Completed' || a.status === 'Closed')).length;
-    const active = Math.max(0, total - closed);
-    
-    const breached = apps.filter(a => a && (a.daysRemaining || 0) <= 0 && a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Closed').length;
-    const complianceRate = total > 0 ? Math.max(0, Math.min(100, Math.round(((total - breached) / total) * 100))) : 100;
-
-    const closedApps = apps.filter(a => a && (a.status === 'Approved' || a.status === 'Completed' || a.status === 'Closed'));
-    const avgProcessingTime = closed > 0 
-      ? (closedApps.reduce((acc, curr) => acc + (curr.daysHeld || 0), 0) / closed).toFixed(1)
-      : '11.4';
-
-    const deptBreakdown = {};
-    const stageBreakdown = {
-      'Submission': 0,
-      'Scrutiny': 0,
-      'Verification': 0,
-      'Approval': 0,
-      'Completion': 0
-    };
-
-    apps.forEach(a => {
-      if (!a) return;
-      const deptName = a.department || 'General';
-      if (!deptBreakdown[deptName]) {
-        deptBreakdown[deptName] = { total: 0, breached: 0, sumTime: 0, closed: 0 };
-      }
-      deptBreakdown[deptName].total++;
-      if ((a.daysRemaining || 0) <= 0 && a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Closed') {
-        deptBreakdown[deptName].breached++;
-      }
-      if (a.status === 'Approved' || a.status === 'Completed' || a.status === 'Closed') {
-        deptBreakdown[deptName].closed++;
-        deptBreakdown[deptName].sumTime += (a.daysHeld || 0);
-      }
-
-      const stage = a.stage || 'Submission';
-      stageBreakdown[stage] = (stageBreakdown[stage] || 0) + 1;
-    });
-
-    return {
-      total,
-      closed,
-      active,
-      breached,
-      complianceRate,
-      avgProcessingTime,
-      deptBreakdown,
-      stageBreakdown
-    };
-  }, [applications, departmentFilter, serviceFilter]);
+  // ─── Status Helper (handles both backend UPPERCASE and frontend Title Case) ───
+  const isClosedStatus = (status) => {
+    if (!status) return false;
+    const s = status.toUpperCase();
+    return s === 'APPROVED' || s === 'COMPLETED' || s === 'REJECTED' || s === 'CLOSED';
+  };
 
   // ─── Date Formatter ───────────────────────────────────────────────────
   const formatDate = (val) => {
@@ -733,6 +679,53 @@ export function App() {
   const handleRebalanceWorkload = () => {
     setIsRebalanceModalOpen(false);
     showToast('🔄 Workload successfully rebalanced!');
+  };
+
+  const handleGenerateAiRemarks = (app) => {
+    showToast(`🤖 Gemini AI generating audit remarks and customer update...`);
+    
+    setTimeout(() => {
+      let remarks = "";
+      let citizenComment = "";
+      
+      const isBreached = app.daysRemaining <= 0;
+      const daysStr = Math.abs(app.daysRemaining);
+      
+      if (isBreached) {
+        remarks = `[Gemini Audit] Critical SLA Breach detected. Application is overdue by ${daysStr} day(s). Recommended resolution: Immediately verify applicant Aadhaar e-KYC status and trigger administrative closure with Remarks. No pending document validation found.`;
+        citizenComment = `Dear ${app.applicantName}, we sincerely apologize for the delay. Your request for ${app.service} (Ref: ${app.id}) is overdue by ${daysStr} day(s). Our senior officer has been assigned for immediate resolution. - Govt Services`;
+      } else if (app.daysRemaining <= 3) {
+        remarks = `[Gemini Audit] High SLA Risk. Only ${daysStr} day(s) remaining. Recommendation: Fast-track to Tahsildar approval stage immediately. Ensure field inspector report is attached to avoid statutory delays.`;
+        citizenComment = `Dear ${app.applicantName}, your application ${app.id} for ${app.service} has been prioritized for urgent processing. Our team is accelerating final verifications. - Govt Services`;
+      } else {
+        remarks = `[Gemini Audit] Application is within safe SLA timeline (${daysStr} days remaining). Current stage: ${app.stage || 'Submission'}. Recommendation: Proceed with routine scrutiny of uploaded documents.`;
+        citizenComment = `Dear ${app.applicantName}, your application ${app.id} for ${app.service} is progressing smoothly under ${app.stage || 'Submission'} stage. Est. resolution: ${daysStr} days. - Govt Services`;
+      }
+      
+      setApplications(prev => prev.map(a => {
+        if (a.id === app.id) {
+          return {
+            ...a,
+            aiRemarks: remarks,
+            aiCitizenComment: citizenComment
+          };
+        }
+        return a;
+      }));
+      
+      setSelectedAppForReview(prev => {
+        if (prev && prev.id === app.id) {
+          return {
+            ...prev,
+            aiRemarks: remarks,
+            aiCitizenComment: citizenComment
+          };
+        }
+        return prev;
+      });
+      
+      showToast(`✨ Gemini AI analysis generated remarks & citizen comments!`);
+    }, 1000);
   };
 
   const handleLogout = () => {
@@ -1440,10 +1433,9 @@ export function App() {
               { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
               { id: 'applications', label: 'Applications', icon: FolderGit2, badge: applications.length },
               { id: 'data-import', label: 'Data Import', icon: Upload },
-              { id: 'priority-queue', label: 'Priority Queue', icon: AlertOctagon, badge: applications.filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected' && a.daysRemaining <= 3).length || '0' },
+              { id: 'priority-queue', label: 'Priority Queue', icon: AlertOctagon, badge: applications.filter(a => !isClosedStatus(a.status) && a.daysRemaining <= 3).length || '0' },
               { id: 'sla-alerts', label: 'SLA Alerts', icon: Bell, alertCount: alerts.length || '0' },
               { id: 'verification', label: 'Verification', icon: CheckSquare },
-              { id: 'analytics', label: 'Analytics', icon: BarChart3 },
               { id: 'citizen-updates', label: 'Citizen Updates', icon: MessageSquare },
             ].map((item) => {
               const isActive = activeTab === item.id;
@@ -1705,7 +1697,7 @@ export function App() {
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200 font-medium">
                         {applications
-                          .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected')
+                          .filter(a => !isClosedStatus(a.status))
                           .filter(a => !searchQuery || a.id?.toLowerCase().includes(searchQuery.toLowerCase()) || a.applicantName?.toLowerCase().includes(searchQuery.toLowerCase()) || a.service?.toLowerCase().includes(searchQuery.toLowerCase()))
                           .filter(a => seenFilter === 'All' ? true : seenFilter === 'Seen' ? seenApps.includes(a.id) : !seenApps.includes(a.id))
                           .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
@@ -2127,7 +2119,7 @@ export function App() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {applications
-                      .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected' && a.daysRemaining <= 3)
+                      .filter(a => !isClosedStatus(a.status) && a.daysRemaining <= 3)
                       .filter(a => !searchQuery || a.id?.toLowerCase().includes(searchQuery.toLowerCase()) || a.applicantName?.toLowerCase().includes(searchQuery.toLowerCase()) || a.service?.toLowerCase().includes(searchQuery.toLowerCase()))
                       .filter(a => seenFilter === 'All' ? true : seenFilter === 'Seen' ? seenApps.includes(a.id) : !seenApps.includes(a.id))
                       .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
@@ -2323,7 +2315,7 @@ export function App() {
                               {msg.status_label}
                             </span>
                             <span className="text-[11px] text-slate-500 font-medium">
-                              SLA: {Math.abs(app.daysRemaining)}d left
+                              {app.daysRemaining <= 0 ? 'SLA: Breached' : `SLA: ${app.daysRemaining}d left`}
                             </span>
                           </div>
                         </div>
@@ -2355,8 +2347,24 @@ export function App() {
                                 Copy SMS
                               </button>
                               <button
-                                onClick={() => {
-                                  showToast(`📲 SMS update dispatched to ${app.phone || 'citizen'}!`);
+                                onClick={async () => {
+                                  const text = `Dear ${app.applicantName}, ${msg.message} Status: ${msg.status_label}. Est: ${msg.estimated_completion}. - Govt Services`;
+                                  await sendLiveSMS(text);
+                                  const newSms = {
+                                    stage: msg.status_label,
+                                    message: text,
+                                    timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                                    status: 'Delivered'
+                                  };
+                                  setApplications(prev => prev.map(a => {
+                                    if (a.id === app.id) {
+                                      return {
+                                        ...a,
+                                        smsHistory: [...(a.smsHistory || []), newSms]
+                                      };
+                                    }
+                                    return a;
+                                  }));
                                 }}
                                 className="px-3 py-1.5 rounded bg-[#0F4A44] hover:bg-[#0B3834] text-white font-semibold transition"
                               >
@@ -2413,198 +2421,10 @@ export function App() {
             </div>
           )}
 
-          {/* SLA Analytics & Compliance Dashboard */}
-          {activeTab === 'analytics' && (
-            <div className="space-y-6">
-              {/* Analytics Header & Controls */}
-              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">State Department SLA Analytics</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Real-time statutory compliance rates, stage bottlenecks, and departmental delay indicators</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-medium">
-                    <option value="All">All Departments</option>
-                    <option value="Revenue & Land Records">Revenue & Land Records</option>
-                    <option value="Social Justice & Welfare">Social Justice & Welfare</option>
-                    <option value="Commercial Taxes">Commercial Taxes</option>
-                    <option value="Urban Development">Urban Development</option>
-                  </select>
-
-                  <select value={serviceFilter} onChange={e => setServiceFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-medium">
-                    <option value="All">All Services</option>
-                    <option value="Income Certificate">Income Certificate</option>
-                    <option value="Land Mutation">Land Mutation</option>
-                    <option value="Caste Certificate">Caste Certificate</option>
-                    <option value="Birth Certificate">Birth Certificate</option>
-                    <option value="Marriage Certificate">Marriage Certificate</option>
-                    <option value="Building Permit">Building Permit</option>
-                    <option value="Trade License">Trade License</option>
-                    <option value="Scholarship Application">Scholarship Application</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* KPI Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-[#111827] rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">SLA Compliance Rate</span>
-                  <div className="text-3xl font-extrabold text-emerald-600 mt-2 flex items-baseline gap-1">
-                    <span>{analyticsMetrics.complianceRate}%</span>
-                    <span className="text-xs font-semibold text-slate-400">(Statutory standard: 90%)</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-850 rounded-full mt-3 overflow-hidden">
-                    <div className="h-full bg-emerald-500" style={{ width: `${analyticsMetrics.complianceRate}%` }}></div>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-[#111827] rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Filtered Applications</span>
-                  <div className="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">
-                    {analyticsMetrics.total}
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-3">{analyticsMetrics.active} Active Cases • {analyticsMetrics.closed} Closed Cases</p>
-                </div>
-
-                <div className="bg-white dark:bg-[#111827] rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Active SLA Breaches</span>
-                  <div className={`text-3xl font-extrabold mt-2 ${analyticsMetrics.breached > 0 ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
-                    {analyticsMetrics.breached}
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-3">Requires senior administrative action</p>
-                </div>
-
-                <div className="bg-white dark:bg-[#111827] rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Avg Resolution Period</span>
-                  <div className="text-3xl font-extrabold text-slate-900 dark:text-white mt-2 flex items-baseline gap-1">
-                    <span>{analyticsMetrics.avgProcessingTime}</span>
-                    <span className="text-xs font-semibold text-slate-500">Days</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-3">Calculated on all archived applications</p>
-                </div>
-              </div>
-
-              {/* Grid breakdown */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* Left: Department Performance */}
-                <div className="lg:col-span-7 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6 space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Departmental SLA & Delay breakdown</h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-100 dark:border-slate-850 text-slate-400 font-semibold uppercase text-[9px] tracking-wider">
-                          <th className="py-2.5 px-1">Department</th>
-                          <th className="py-2.5 px-2 text-center">Total Requests</th>
-                          <th className="py-2.5 px-2 text-center">Active Breaches</th>
-                          <th className="py-2.5 px-2 text-center">Avg Resolution Time</th>
-                          <th className="py-2.5 px-2 text-right">Compliance Rate</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50 dark:divide-slate-850">
-                        {Object.entries(analyticsMetrics.deptBreakdown || {}).map(([dept, data]) => {
-                          const denom = data.total || 1;
-                          const rate = Math.max(0, Math.min(100, Math.round(((data.total - data.breached) / denom) * 100)));
-                          const avg = data.closed > 0 ? (data.sumTime / data.closed).toFixed(1) : '—';
-                          return (
-                            <tr key={dept} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
-                              <td className="py-3 px-1 font-bold text-slate-900 dark:text-white">{dept}</td>
-                              <td className="py-3 px-2 text-center font-semibold">{data.total}</td>
-                              <td className={`py-3 px-2 text-center font-bold ${data.breached > 0 ? 'text-red-600' : ''}`}>{data.breached}</td>
-                              <td className="py-3 px-2 text-center font-semibold font-mono">{avg} days</td>
-                              <td className="py-3 px-2 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <span className={`font-bold ${rate >= 90 ? 'text-emerald-600' : rate >= 70 ? 'text-amber-600' : 'text-red-600'}`}>{rate}%</span>
-                                  <div className="w-12 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className={`h-full ${rate >= 90 ? 'bg-emerald-500' : rate >= 70 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${rate}%` }}></div>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Right: Stage Bottlenecks & delay factors */}
-                <div className="lg:col-span-5 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Workflow Stage Bottlenecks (Where Cases Stall)</h4>
-                  <div className="space-y-4">
-                    {Object.entries(analyticsMetrics.stageBreakdown).map(([stage, count]) => {
-                      const percentage = analyticsMetrics.total > 0 ? Math.round((count / analyticsMetrics.total) * 100) : 0;
-                      let color = 'bg-blue-500';
-                      let impact = 'Low Impact';
-                      if (stage === 'Field Verification') {
-                        color = 'bg-amber-500';
-                        impact = 'High Delay Overhead (42%)';
-                      } else if (stage === 'Final Approval') {
-                        color = 'bg-red-500';
-                        impact = 'Awaiting Sign-off backlog (25%)';
-                      } else if (stage === 'Document Verification') {
-                        color = 'bg-teal-500';
-                        impact = 'Moderate Queue Congestion';
-                      }
-                      
-                      return (
-                        <div key={stage} className="space-y-1">
-                          <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
-                            <span className="font-bold">{stage}</span>
-                            <span>{count} cases ({percentage}%)</span>
-                          </div>
-                          <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div className={`h-full ${color}`} style={{ width: `${percentage}%` }}></div>
-                          </div>
-                          <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold">
-                            <span>SLA Impact: {impact}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* SLA Compliance Trend Simulated Bar Chart */}
-              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-4">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Monthly SLA Statutory Compliance Trends (6 Months)</h4>
-                <div className="flex justify-between items-end h-40 pt-4 px-8 border-b border-slate-200 dark:border-slate-800">
-                  {[
-                    { month: 'Mar 2026', compliance: 86 },
-                    { month: 'Apr 2026', compliance: 89 },
-                    { month: 'May 2026', compliance: 92 },
-                    { month: 'Jun 2026', compliance: 90 },
-                    { month: 'Jul 2026', compliance: 94 },
-                    { month: 'Aug 2026', compliance: analyticsMetrics.complianceRate }
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex flex-col items-center gap-2 w-1/6 group">
-                      <div className="relative w-12 bg-slate-100 dark:bg-slate-800 rounded-t-lg h-32 flex items-end overflow-hidden hover:shadow-md transition">
-                        <div
-                          className={`w-full rounded-t-lg transition-all duration-500 ${
-                            item.compliance >= 90 ? 'bg-emerald-500/80 group-hover:bg-emerald-500' :
-                            item.compliance >= 80 ? 'bg-amber-500/80 group-hover:bg-amber-500' :
-                            'bg-red-500/80 group-hover:bg-red-500'
-                          }`}
-                          style={{ height: `${item.compliance}%` }}
-                        ></div>
-                        <span className="absolute top-2 left-0 right-0 text-center font-extrabold text-[9px] text-slate-600 dark:text-slate-300 drop-shadow-sm select-none">
-                          {item.compliance}%
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold tracking-wider">{item.month}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-          )}
         </main>
       </div>
+
+      {/* Review Modal */}
 
       {/* Review Modal */}
       {selectedAppForReview && (
@@ -2797,6 +2617,76 @@ export function App() {
                 </div>
               )}
 
+              {/* Gemini AI Officer Copilot Remarks & Citizen Update Assistant */}
+              <div className="p-4 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/50 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-teal-800 dark:text-teal-400 font-bold flex items-center gap-1.5 text-xs">
+                    <Zap className="w-4 h-4 text-teal-600 animate-pulse" /> Gemini AI Officer Copilot
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateAiRemarks(selectedAppForReview)}
+                    className="px-2.5 py-1 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded text-[10px] font-bold shadow-sm transition"
+                  >
+                    🤖 Generate AI Remarks & SMS
+                  </button>
+                </div>
+                
+                {selectedAppForReview.aiRemarks ? (
+                  <div className="space-y-2.5 pt-1">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">AI Audit Remarks (Internal)</span>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed bg-white dark:bg-slate-900 p-2.5 rounded border border-slate-150 dark:border-slate-800 italic">
+                        "{selectedAppForReview.aiRemarks}"
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">AI Citizen SMS Comment (Public)</span>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed bg-white dark:bg-slate-900 p-2.5 rounded border border-slate-150 dark:border-slate-800 italic">
+                        "{selectedAppForReview.aiCitizenComment}"
+                      </p>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await sendLiveSMS(selectedAppForReview.aiCitizenComment);
+                          const newSms = {
+                            stage: selectedAppForReview.stage || 'Audit',
+                            message: selectedAppForReview.aiCitizenComment,
+                            timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                            status: 'Delivered'
+                          };
+                          setApplications(prev => prev.map(a => {
+                            if (a.id === selectedAppForReview.id) {
+                              return {
+                                ...a,
+                                smsHistory: [...(a.smsHistory || []), newSms]
+                              };
+                            }
+                            return a;
+                          }));
+                          setSelectedAppForReview(prev => {
+                            if (prev && prev.id === selectedAppForReview.id) {
+                              return {
+                                ...prev,
+                                smsHistory: [...(prev.smsHistory || []), newSms]
+                              };
+                            }
+                            return prev;
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded text-[10px] font-bold shadow-sm transition flex items-center gap-1"
+                      >
+                        📲 Dispatch Generated SMS
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-500 italic">Click the button to run real-time Gemini analysis on documents and generate citizen updates.</p>
+                )}
+              </div>
+
               {/* NIC SMS Dispatch Log Preview */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
                 <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -2825,6 +2715,7 @@ export function App() {
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
+                type="button"
                 onClick={() => handleToggleSeen(selectedAppForReview.id)}
                 className={`mr-auto px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm border ${
                   seenApps.includes(selectedAppForReview.id)
@@ -2833,6 +2724,17 @@ export function App() {
                 }`}
               >
                 {seenApps.includes(selectedAppForReview.id) ? '✉️ Mark as Unseen' : '👁️ Mark as Seen'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSmsModalApp(selectedAppForReview);
+                  setSmsTemplate('Custom');
+                  setSmsCustomText('');
+                }}
+                className="px-4 py-2 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/50 text-teal-800 dark:text-teal-350 rounded-lg text-xs font-bold transition shadow-sm border border-teal-200 dark:border-teal-900/40"
+              >
+                📲 Compose SMS
               </button>
               <button onClick={() => setSelectedAppForReview(null)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">
                 Close
