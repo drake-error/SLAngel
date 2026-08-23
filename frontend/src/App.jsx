@@ -435,12 +435,39 @@ export function App() {
 
     if (liveSmsSettings.provider === 'Fast2SMS') {
       try {
-        const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${liveSmsSettings.apiKey}&route=q&message=${encodeURIComponent(smsText)}&flash=0&numbers=${cleanedPhone}`;
-        await fetch(url, { mode: 'no-cors' });
-        showToast(`📲 Live SMS Dispatched to ${cleanedPhone}!`);
+        const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+          method: 'POST',
+          headers: {
+            'authorization': liveSmsSettings.apiKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            route: 'q',
+            message: smsText,
+            flash: 0,
+            numbers: cleanedPhone
+          })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.return) {
+            showToast(`📲 SMS delivered to +91${cleanedPhone}!`);
+          } else {
+            showToast(`⚠️ SMS sent but gateway reported: ${data.message || 'Unknown issue'}`);
+          }
+        } else {
+          showToast(`⚠️ SMS gateway returned status ${response.status}. Check API key.`);
+        }
       } catch (err) {
-        console.error('Fast2SMS dispatch failed:', err);
-        showToast(`❌ Live SMS Dispatch failed: CORS or connection error.`);
+        // CORS fallback — try GET with no-cors (opaque, best effort)
+        try {
+          const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${liveSmsSettings.apiKey}&route=q&message=${encodeURIComponent(smsText)}&flash=0&numbers=${cleanedPhone}`;
+          await fetch(url, { mode: 'no-cors' });
+          showToast(`📲 SMS dispatched to +91${cleanedPhone} (best-effort)`);
+        } catch (e2) {
+          console.error('Fast2SMS dispatch failed:', e2);
+          showToast(`❌ SMS failed: Network/CORS error. Message logged locally.`);
+        }
       }
     } else if (liveSmsSettings.provider === 'Twilio') {
       try {
