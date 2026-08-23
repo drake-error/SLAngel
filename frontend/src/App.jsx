@@ -1703,7 +1703,7 @@ export function App() {
                             <td className="py-4 px-4 text-slate-600 dark:text-slate-400">{app.stage}</td>
                             <td className="py-4 px-4 text-center font-semibold text-slate-900 dark:text-white">{app.daysHeld}</td>
                             <td className={`py-4 px-4 text-center font-bold ${app.daysRemaining <= 1 ? 'text-[#DC2626]' : 'text-slate-900 dark:text-white'}`}>
-                              {app.daysRemaining}
+                              {Math.abs(app.daysRemaining)}
                             </td>
                             <td className="py-4 px-4">
                               {app.riskLevel === 'Critical' ? (
@@ -1959,7 +1959,7 @@ export function App() {
                         <td className="py-3.5 px-4">{app.service}</td>
                         <td className="py-3.5 px-4 text-slate-500 font-semibold">{app.stage}</td>
                         <td className="py-3.5 px-3 text-center font-bold">{app.daysHeld}</td>
-                        <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : ''}`}>{app.daysRemaining}</td>
+                        <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : ''}`}>{Math.abs(app.daysRemaining)}</td>
                         <td className="py-3.5 px-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             app.riskLevel === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' :
@@ -2165,7 +2165,7 @@ export function App() {
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
                         <td className={`py-3.5 px-3 text-center font-bold ${app.daysRemaining <= 1 ? 'text-red-600' : app.daysRemaining <= 3 ? 'text-amber-600' : ''}`}>
-                          {app.daysRemaining}
+                          {Math.abs(app.daysRemaining)}
                         </td>
                         <td className="py-3.5 px-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -2255,7 +2255,7 @@ export function App() {
                   <div key={app.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">{app.id} — {app.service}</h4>
-                      <p className="text-xs text-slate-500 mt-1">{app.applicantName} • {app.department} • {app.daysRemaining} days remaining</p>
+                      <p className="text-xs text-slate-500 mt-1">{app.applicantName} • {app.department} • {Math.abs(app.daysRemaining)} days remaining</p>
                       <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold ${
                         app.verification_status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
                       }`}>{app.verification_status}</span>
@@ -2306,7 +2306,7 @@ export function App() {
                       detail: `It has been ${app.daysHeld || 0} days since submission.`,
                       next_steps: "No action required from your end.",
                       urgency: app.riskLevel === 'Critical' ? 'urgent' : app.riskLevel === 'High' ? 'attention' : 'normal',
-                      estimated_completion: `${app.daysRemaining} days remaining`
+                      estimated_completion: `${Math.abs(app.daysRemaining)} days remaining`
                     };
 
                     const urgencyStyles = {
@@ -2345,7 +2345,7 @@ export function App() {
                               {msg.status_label}
                             </span>
                             <span className="text-[11px] text-slate-500 font-medium">
-                              SLA: {app.daysRemaining}d left
+                              SLA: {Math.abs(app.daysRemaining)}d left
                             </span>
                           </div>
                         </div>
@@ -2675,7 +2675,7 @@ export function App() {
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
                 <span className="text-slate-500 text-[11px] font-semibold">Time Remaining</span>
                 <p className={`text-sm font-bold mt-1 ${selectedAppForReview.daysRemaining <= 1 ? 'text-red-600' : selectedAppForReview.daysRemaining <= 3 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                  {selectedAppForReview.daysRemaining} Days
+                  {Math.abs(selectedAppForReview.daysRemaining)} Days
                 </p>
               </div>
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
