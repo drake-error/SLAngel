@@ -510,50 +510,50 @@ export function App() {
 
   // ─── Analytics Tab Metrics (Calculated dynamically) ─────────────────────
   const analyticsMetrics = useMemo(() => {
-    // Filter apps based on analytics filters (synced with registry filters)
-    const apps = applications.filter(app => {
+    const apps = (applications || []).filter(app => {
+      if (!app) return false;
       const matchesDept = departmentFilter === 'All' || app.department === departmentFilter;
       const matchesService = serviceFilter === 'All' || app.service === serviceFilter;
-      const matchesRisk = riskFilter === 'All' || app.riskLevel === riskFilter;
-      return matchesDept && matchesService && matchesRisk;
+      return matchesDept && matchesService;
     });
 
     const total = apps.length;
-    const closed = apps.filter(a => a.status === 'Approved' || a.status === 'Completed' || a.status === 'Closed').length;
-    const active = total - closed;
+    const closed = apps.filter(a => a && (a.status === 'Approved' || a.status === 'Completed' || a.status === 'Closed')).length;
+    const active = Math.max(0, total - closed);
     
-    const breached = apps.filter(a => a.daysRemaining <= 0 && a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Closed').length;
-    const complianceRate = total > 0 ? Math.round(((total - breached) / total) * 100) : 100;
+    const breached = apps.filter(a => a && (a.daysRemaining || 0) <= 0 && a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Closed').length;
+    const complianceRate = total > 0 ? Math.max(0, Math.min(100, Math.round(((total - breached) / total) * 100))) : 100;
 
+    const closedApps = apps.filter(a => a && (a.status === 'Approved' || a.status === 'Completed' || a.status === 'Closed'));
     const avgProcessingTime = closed > 0 
-      ? (apps.filter(a => a.status === 'Approved' || a.status === 'Completed' || a.status === 'Closed').reduce((acc, curr) => acc + (curr.daysHeld || 0), 0) / closed).toFixed(1)
+      ? (closedApps.reduce((acc, curr) => acc + (curr.daysHeld || 0), 0) / closed).toFixed(1)
       : '11.4';
 
-    // Breakdowns by department
     const deptBreakdown = {};
     const stageBreakdown = {
-      'Submitted': 0,
-      'Document Verification': 0,
-      'Field Verification': 0,
-      'Final Approval': 0,
-      'Approved / Issued': 0,
-      'Closed / Resolved': 0
+      'Submission': 0,
+      'Scrutiny': 0,
+      'Verification': 0,
+      'Approval': 0,
+      'Completion': 0
     };
 
     apps.forEach(a => {
-      if (!deptBreakdown[a.department]) {
-        deptBreakdown[a.department] = { total: 0, breached: 0, sumTime: 0, closed: 0 };
+      if (!a) return;
+      const deptName = a.department || 'General';
+      if (!deptBreakdown[deptName]) {
+        deptBreakdown[deptName] = { total: 0, breached: 0, sumTime: 0, closed: 0 };
       }
-      deptBreakdown[a.department].total++;
-      if (a.daysRemaining <= 0 && a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Closed') {
-        deptBreakdown[a.department].breached++;
+      deptBreakdown[deptName].total++;
+      if ((a.daysRemaining || 0) <= 0 && a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Closed') {
+        deptBreakdown[deptName].breached++;
       }
       if (a.status === 'Approved' || a.status === 'Completed' || a.status === 'Closed') {
-        deptBreakdown[a.department].closed++;
-        deptBreakdown[a.department].sumTime += (a.daysHeld || 0);
+        deptBreakdown[deptName].closed++;
+        deptBreakdown[deptName].sumTime += (a.daysHeld || 0);
       }
 
-      const stage = a.stage || 'Submitted';
+      const stage = a.stage || 'Submission';
       stageBreakdown[stage] = (stageBreakdown[stage] || 0) + 1;
     });
 
@@ -567,7 +567,7 @@ export function App() {
       deptBreakdown,
       stageBreakdown
     };
-  }, [applications, departmentFilter, serviceFilter, riskFilter]);
+  }, [applications, departmentFilter, serviceFilter]);
 
   // ─── Date Formatter ───────────────────────────────────────────────────
   const formatDate = (val) => {
@@ -902,7 +902,7 @@ export function App() {
         const updatedApp = {
           ...app,
           verification_status: 'IN_PROGRESS',
-          stage: 'Scrutiny',
+          stage: 'Verification',
           smsHistory: [...(app.smsHistory || []), newSms],
           timeline: [
             ...(app.timeline || []),
@@ -939,7 +939,7 @@ export function App() {
         const updatedApp = {
           ...app,
           verification_status: 'COMPLETED',
-          stage: 'Verification',
+          stage: 'Approval',
           smsHistory: [...(app.smsHistory || []), newSms],
           timeline: [
             ...(app.timeline || []),
@@ -1440,7 +1440,7 @@ export function App() {
               { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
               { id: 'applications', label: 'Applications', icon: FolderGit2, badge: applications.length },
               { id: 'data-import', label: 'Data Import', icon: Upload },
-              { id: 'priority-queue', label: 'Priority Queue', icon: AlertOctagon, badge: applications.filter(a => a.riskLevel === 'Critical' || a.riskLevel === 'High').length || '0' },
+              { id: 'priority-queue', label: 'Priority Queue', icon: AlertOctagon, badge: applications.filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected' && a.daysRemaining <= 3).length || '0' },
               { id: 'sla-alerts', label: 'SLA Alerts', icon: Bell, alertCount: alerts.length || '0' },
               { id: 'verification', label: 'Verification', icon: CheckSquare },
               { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -2108,7 +2108,7 @@ export function App() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {applications
-                      .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected')
+                      .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected' && a.daysRemaining <= 3)
                       .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
                       .map((app, idx) => (
                       <tr key={app.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 ${idx < 3 ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
@@ -2401,15 +2401,6 @@ export function App() {
                   <p className="text-xs text-slate-500 mt-0.5">Real-time statutory compliance rates, stage bottlenecks, and departmental delay indicators</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-medium">
-                    <option value="All">All Risk Levels</option>
-                    <option value="Critical">Critical</option>
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                  </select>
-
                   <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}
                     className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 focus:outline-none dark:text-white font-medium">
                     <option value="All">All Departments</option>
@@ -2491,8 +2482,9 @@ export function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 dark:divide-slate-850">
-                        {Object.entries(analyticsMetrics.deptBreakdown).map(([dept, data]) => {
-                          const rate = Math.round(((data.total - data.breached) / data.total) * 100);
+                        {Object.entries(analyticsMetrics.deptBreakdown || {}).map(([dept, data]) => {
+                          const denom = data.total || 1;
+                          const rate = Math.max(0, Math.min(100, Math.round(((data.total - data.breached) / denom) * 100)));
                           const avg = data.closed > 0 ? (data.sumTime / data.closed).toFixed(1) : '—';
                           return (
                             <tr key={dept} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
