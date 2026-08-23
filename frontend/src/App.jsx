@@ -620,7 +620,7 @@ export function App() {
         const dateB = new Date(b.submission_date || b.created_at || 0).getTime();
         return dateB - dateA; // Recent date first (newest -> oldest)
       });
-  }, [applications, searchQuery, riskFilter, departmentFilter, serviceFilter]);
+  }, [applications, searchQuery, riskFilter, departmentFilter, serviceFilter, seenFilter, docSearchQuery]);
 
   const handleApproveApp = async (appId) => {
     try {
@@ -1527,15 +1527,30 @@ export function App() {
 
           {/* Right Header icons */}
           <div className="flex items-center gap-4">
-            <div className="relative hidden lg:block w-64">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search App ID, Citizen, Service..."
-                className="w-full pl-9 pr-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-xs rounded-lg border border-transparent focus:border-slate-300 dark:focus:border-slate-600 focus:outline-none dark:text-white"
-              />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            <div className="relative hidden lg:flex items-center gap-2">
+              <div className="relative w-64">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search App ID, Citizen Name, Service..."
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-xs rounded-lg border border-transparent focus:border-slate-300 dark:focus:border-slate-600 focus:outline-none dark:text-white"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setSeenFilter(seenFilter === 'All' ? 'Unseen' : seenFilter === 'Unseen' ? 'Seen' : 'All')}
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition border ${
+                    seenFilter === 'Unseen' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800' :
+                    seenFilter === 'Seen' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800' :
+                    'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                  }`}
+                  title={seenFilter === 'All' ? 'Show all' : seenFilter === 'Unseen' ? 'Showing Unseen only' : 'Showing Seen only'}
+                >
+                  {seenFilter === 'Unseen' ? '✉️ Unseen' : seenFilter === 'Seen' ? '👁️ Seen' : '📋 All'}
+                </button>
+              </div>
             </div>
 
             <button
@@ -1691,6 +1706,8 @@ export function App() {
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200 font-medium">
                         {applications
                           .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected')
+                          .filter(a => !searchQuery || a.id?.toLowerCase().includes(searchQuery.toLowerCase()) || a.applicantName?.toLowerCase().includes(searchQuery.toLowerCase()) || a.service?.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .filter(a => seenFilter === 'All' ? true : seenFilter === 'Seen' ? seenApps.includes(a.id) : !seenApps.includes(a.id))
                           .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
                           .slice(0, 6).map((app) => (
                           <tr key={app.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
@@ -2111,6 +2128,8 @@ export function App() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {applications
                       .filter(a => a.status !== 'Approved' && a.status !== 'Completed' && a.status !== 'Rejected' && a.daysRemaining <= 3)
+                      .filter(a => !searchQuery || a.id?.toLowerCase().includes(searchQuery.toLowerCase()) || a.applicantName?.toLowerCase().includes(searchQuery.toLowerCase()) || a.service?.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .filter(a => seenFilter === 'All' ? true : seenFilter === 'Seen' ? seenApps.includes(a.id) : !seenApps.includes(a.id))
                       .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
                       .map((app, idx) => (
                       <tr key={app.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 ${idx < 3 ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
