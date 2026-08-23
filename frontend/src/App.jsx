@@ -153,6 +153,10 @@ export function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Gemini AI Analysis states
+  const [aiAnalysisResult, setAiAnalysisResult] = useState(null);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+
   // File upload state
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadDragActive, setUploadDragActive] = useState(false);
@@ -383,46 +387,50 @@ export function App() {
     showToast("📄 Downloaded sample CSV template!");
   };
 
-  // ─── Direct File Upload (CSV, PDF, Excel, JSON) ───────────────────────────
+  // ─── Gemini AI Document Intake & Risk Analyzer ───────────────────────────
   const handleDirectFileUpload = async (file) => {
     if (!file) return;
-    setUploadLoading(true);
-    showToast(`⏳ Uploading & processing ${file.name}...`);
+    setIsAiAnalyzing(true);
+    setAiAnalysisResult(null);
+    showToast(`🤖 Gemini AI Analyzing Document: ${file.name}...`);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const ext = file.name.split('.').pop().toLowerCase();
-      let endpoint = '/import/csv';
-      if (ext === 'json') endpoint = '/import/json';
-      else if (ext === 'xlsx' || ext === 'xls') endpoint = '/import/excel';
-      else if (ext === 'pdf') endpoint = '/import/pdf';
 
       const token = localStorage.getItem('slangel_token');
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      const res = await fetch(`${API_BASE}/import/ai-analyze`, {
         method: 'POST',
         headers,
         body: formData,
       });
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
-        throw new Error(err.detail || 'Upload failed');
+        const err = await res.json().catch(() => ({ detail: 'AI analysis failed' }));
+        throw new Error(err.detail || 'AI analysis failed');
       }
+
       const result = await res.json();
-      if (result.imported > 0) {
-        showToast(`✅ Successfully imported ${result.imported} application(s) from ${file.name}!`);
+      setAiAnalysisResult(result);
+
+      if (result.success) {
+        showToast(`✅ Gemini AI Categorized as ${result.category || 'Government Application'}!`);
         fetchData();
-      } else if (result.error) {
-        showToast(`❌ Import error: ${result.error}`);
       } else {
-        showToast(`⚠️ Upload completed. Total: ${result.total_rows}, Imported: ${result.imported}`);
+        showToast(`❌ Document Rejected: ${result.rejection_reason}`);
       }
     } catch (err) {
-      showToast(`❌ File upload error: ${err.message}`);
+      showToast(`❌ Gemini AI Error: ${err.message}`);
+      setAiAnalysisResult({
+        success: false,
+        is_valid: false,
+        filename: file.name,
+        rejection_reason: err.message || "Failed to analyze document."
+      });
     } finally {
-      setUploadLoading(false);
+      setIsAiAnalyzing(false);
     }
   };
 
@@ -749,7 +757,7 @@ export function App() {
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-500 font-semibold bg-slate-50/50 dark:bg-slate-800/30">
-                          <th className="py-3.5 px-6">Submitted Date</th>
+                          <th className="py-3.5 px-6">Received Date</th>
                           <th className="py-3.5 px-4">Service</th>
                           <th className="py-3.5 px-4">Stage</th>
                           <th className="py-3.5 px-4 text-center">Days Held</th>
@@ -764,8 +772,9 @@ export function App() {
                           .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
                           .slice(0, 6).map((app) => (
                           <tr key={app.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
-                            <td className="py-4 px-6 font-semibold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
-                              {formatDate(app)}
+                            <td className="py-4 px-6 font-semibold text-slate-900 dark:text-white">
+                              <div>{formatDate(app)}</div>
+                              <div className="text-[10px] text-slate-400 font-mono font-normal">{app.id}</div>
                             </td>
                             <td className="py-4 px-4 font-medium text-slate-800 dark:text-slate-200">{app.service}</td>
                             <td className="py-4 px-4 text-slate-600 dark:text-slate-400">{app.stage}</td>
@@ -944,7 +953,7 @@ export function App() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold">
-                      <th className="py-3 px-4">Submitted Date</th>
+                      <th className="py-3 px-4">Received Date</th>
                       <th className="py-3 px-4">Applicant</th>
                       <th className="py-3 px-4">Service</th>
                       <th className="py-3 px-4">Stage</th>
@@ -958,8 +967,9 @@ export function App() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {filteredApplications.map(app => (
                       <tr key={app.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
-                          {formatDate(app)}
+                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                          <div>{formatDate(app)}</div>
+                          <div className="text-[10px] text-slate-400 font-mono font-normal">{app.id}</div>
                         </td>
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
@@ -1133,7 +1143,7 @@ export function App() {
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold">
                       <th className="py-3 px-3 text-center">#</th>
-                      <th className="py-3 px-4">Submitted Date</th>
+                      <th className="py-3 px-4">Received Date</th>
                       <th className="py-3 px-4">Applicant</th>
                       <th className="py-3 px-4">Service</th>
                       <th className="py-3 px-3 text-center">Days Rem.</th>
@@ -1164,8 +1174,9 @@ export function App() {
                             {idx + 1}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white" title={`App ID: ${app.id}`}>
-                          {formatDate(app)}
+                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                          <div>{formatDate(app)}</div>
+                          <div className="text-[10px] text-slate-400 font-mono font-normal">{app.id}</div>
                         </td>
                         <td className="py-3.5 px-4">{app.applicantName}</td>
                         <td className="py-3.5 px-4">{app.service}</td>
@@ -1661,6 +1672,133 @@ export function App() {
                 <button type="submit" className="px-4 py-2 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded-lg font-bold">Create Application</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Gemini AI Document Analysis & Risk Prediction Modal */}
+      {(isAiAnalyzing || aiAnalysisResult) && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#111827] w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-md">
+                  <Zap className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Gemini AI Intake & Risk Analysis</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300">v2.5 Flash</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">Government Officer AI Copilot</p>
+                </div>
+              </div>
+              {!isAiAnalyzing && (
+                <button onClick={() => setAiAnalysisResult(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {isAiAnalyzing ? (
+              <div className="py-10 text-center space-y-4">
+                <div className="w-14 h-14 rounded-full bg-teal-50 dark:bg-teal-950/60 border-2 border-teal-500 text-teal-600 flex items-center justify-center mx-auto animate-spin">
+                  <Zap className="w-7 h-7" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Analyzing Document & Predicting Risk...</h4>
+                  <p className="text-xs text-slate-500 mt-1">Classifying category (Transport, Scholarship, Real Estate...) and checking government validity</p>
+                </div>
+              </div>
+            ) : aiAnalysisResult && !aiAnalysisResult.is_valid ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-xl border border-red-200 dark:border-red-900/50 space-y-2">
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-sm">
+                    <AlertOctagon className="w-5 h-5 shrink-0" />
+                    <span>This Document Cannot Be Uploaded</span>
+                  </div>
+                  <p className="text-xs text-red-600 dark:text-red-300 leading-relaxed font-medium">
+                    {aiAnalysisResult.rejection_reason}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+                    File: <span className="font-mono text-slate-700 dark:text-slate-300">{aiAnalysisResult.filename}</span>
+                  </p>
+                </div>
+                <div className="flex justify-end pt-2">
+                  <button onClick={() => setAiAnalysisResult(null)} className="px-4 py-2 bg-slate-900 text-white dark:bg-slate-800 rounded-lg text-xs font-semibold">
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ) : aiAnalysisResult && aiAnalysisResult.is_valid ? (
+              <div className="space-y-4 text-xs">
+                <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Valid Government Application Classified</span>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-emerald-600 text-white">
+                    {aiAnalysisResult.category}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500 text-[11px] font-semibold">Applicant</span>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{aiAnalysisResult.analysis?.applicant_name}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500 text-[11px] font-semibold">Service Type</span>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{aiAnalysisResult.analysis?.service_type}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500 text-[11px] font-semibold">Department</span>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{aiAnalysisResult.analysis?.department}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500 text-[11px] font-semibold">Date Received by Officer</span>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{formatDate(new Date())}</p>
+                  </div>
+                </div>
+
+                {/* AI Risk Prediction Card */}
+                <div className={`p-4 rounded-xl border space-y-2 ${
+                  aiAnalysisResult.analysis?.risk_level === 'Critical' ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50' :
+                  aiAnalysisResult.analysis?.risk_level === 'High' ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50' :
+                  'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-teal-600" /> Accurate AI Risk Prediction
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      aiAnalysisResult.analysis?.risk_level === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                      aiAnalysisResult.analysis?.risk_level === 'High' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300' :
+                      'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
+                    }`}>
+                      {aiAnalysisResult.analysis?.risk_level} Risk ({aiAnalysisResult.analysis?.risk_score?.toFixed(0)}/100)
+                    </span>
+                  </div>
+
+                  {aiAnalysisResult.analysis?.risk_factors?.length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      {aiAnalysisResult.analysis.risk_factors.map((factor, idx) => (
+                        <p key={idx} className="text-[11px] text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <span className="text-slate-400 font-bold">•</span>
+                          <span>{factor}</span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <button onClick={() => setAiAnalysisResult(null)} className="px-4 py-2 bg-[#0F4A44] hover:bg-[#0B3834] text-white rounded-lg text-xs font-bold">
+                    View in Application Registry
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

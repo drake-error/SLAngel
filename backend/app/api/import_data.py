@@ -355,3 +355,79 @@ async def import_pdf(file: UploadFile = File(...), db: Session = Depends(get_db)
         "errors": errors[:20],
     }
 
+
+@router.post("/ai-analyze")
+async def ai_analyze_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Analyze uploaded document with Gemini 2.5 Flash AI.
+    Categorizes domain (Transport, Scholarship, Real Estate, etc.),
+    validates relevance (rejects non-government files), calculates SLA Risk Prediction,
+    and automatically creates an Application in the DB if valid.
+    """
+    from app.services.gemini_service import analyze_with_gemini
+
+    content = await file.read()
+    analysis = analyze_with_gemini(file.filename, content)
+
+    if not analysis.get("is_valid", True):
+        return {
+            "success": False,
+            "is_valid": False,
+            "filename": file.filename,
+            "rejection_reason": analysis.get("rejection_reason", "This document cannot be uploaded. It is an irrelevant file and not a valid government application."),
+            "analysis": analysis
+        }
+
+    # Save to database if valid
+    now = datetime.utcnow()
+
+    record = {
+        "applicant_name": analysis.get("applicant_name") or file.filename.split(".")[0].replace("_", " ").title(),
+        "service_type": analysis.get("service_type") or "Document Verification",
+        "department": analysis.get("department") or "General Administration",
+        "district": analysis.get("district") or "North District",
+        "purpose": analysis.get("purpose") or f"Imported document: {file.filename}",
+        "sla_days": int(analysis.get("sla_days", 15)),
+        "submission_date": now.strftime("%Y-%m-%d"),
+    }
+
+    application, error = _import_single_record(record, db)
+    if error:
+        raise HTTPException(status_code=400, detail=f"Failed to create application: {error}")
+
+    # Override risk level & score from Gemini analysis
+    if analysis.get("risk_level"):
+        application.risk_level = analysis["risk_level"].upper()
+    if analysis.get("risk_score"):
+        application.risk_score = float(analysis["risk_score"])
+    if analysis.get("predicted_delay") is not None:
+        application.predicted_delay = bool(analysis["predicted_delay"])
+    if analysis.get("predicted_delay_days"):
+        application.predicted_delay_days = int(analysis["predicted_delay_days"])
+    if analysis.get("risk_factors"):
+        application.risk_factors = json.dumps(analysis["risk_factors"])
+
+    # Add document to application
+    doc = Document(
+        application_id=application.id,
+        name=file.filename,
+        verified=True,
+        size=f"{round(len(content) / 1024, 1)} KB"
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(application)
+
+    from app.api.applications import _to_response
+    app_dict = _to_response(application)
+
+    return {
+        "success": True,
+        "is_valid": True,
+        "filename": file.filename,
+        "category": analysis.get("category", "General Administration"),
+        "analysis": analysis,
+        "application": app_dict
+    }
+
+
